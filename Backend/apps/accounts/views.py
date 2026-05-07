@@ -8,10 +8,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.decorators import action
+from rest_framework.generics import GenericAPIView
 
 from .serializers import (
     LoginSerializer, UserSerializer, UserCreateSerializer,
-    UserUpdateSerializer, ChangePasswordSerializer, ResetPasswordSerializer
+    UserUpdateSerializer, ChangePasswordSerializer, ResetPasswordSerializer,LogoutSerializer
 )
 from .models import User
 from ..questions.permissions import IsAdminUser
@@ -38,26 +39,58 @@ class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
 
 
-class LogoutView(APIView):
+# class LogoutView(GenericAPIView):
+#     """
+#     خروج از سیستم و غیرفعال کردن توکن
+    
+#     POST /api/auth/logout/
+#     {
+#         "refresh_token": "your_refresh_token"
+#     }
+#     """
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request):
+#         try:
+#             refresh_token = request.data.get('refresh')
+#             if not refresh_token:
+#                 return Response(
+#                     {'error': 'refresh_token is required'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+            
+#             token = RefreshToken(refresh_token)
+#             token.blacklist()
+            
+#             return Response(
+#                 {'message': 'با موفقیت خارج شدید'},
+#                 status=status.HTTP_200_OK
+#             )
+#         except Exception as e:
+#             return Response(
+#                 {'error': str(e)},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+
+class LogoutView(GenericAPIView):
     """
     خروج از سیستم و غیرفعال کردن توکن
     
     POST /api/auth/logout/
     {
-        "refresh_token": "your_refresh_token"
+        "refresh": "your_refresh_token"
     }
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
     
     def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         try:
-            refresh_token = request.data.get('refresh_token')
-            if not refresh_token:
-                return Response(
-                    {'error': 'refresh_token is required'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
+            refresh_token = serializer.validated_data.get('refresh')
             token = RefreshToken(refresh_token)
             token.blacklist()
             
@@ -72,20 +105,67 @@ class LogoutView(APIView):
             )
 
 
-class MeView(APIView):
+
+# class MeView(APIView):
+#     """
+#     دریافت اطلاعات کاربر جاری
+    
+#     GET /api/auth/me/
+#     """
+#     permission_classes = [IsAuthenticated]
+    
+#     def get(self, request):
+#         serializer = UserSerializer(request.user)
+#         return Response(serializer.data)
+
+class MeView(GenericAPIView):
     """
     دریافت اطلاعات کاربر جاری
     
     GET /api/auth/me/
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
     
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
 
-class ChangePasswordView(APIView):
+
+# class ChangePasswordView(APIView):
+#     """
+#     تغییر رمز عبور کاربر جاری
+    
+#     POST /api/auth/change-password/
+#     {
+#         "old_password": "current_password",
+#         "new_password": "new_password",
+#         "confirm_password": "new_password"
+#     }
+#     """
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request):
+#         serializer = ChangePasswordSerializer(
+#             data=request.data,
+#             context={'request': request}
+#         )
+        
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(
+#                 {'message': 'رمز عبور با موفقیت تغییر کرد'},
+#                 status=status.HTTP_200_OK
+#             )
+        
+#         return Response(
+#             serializer.errors,
+#             status=status.HTTP_400_BAD_REQUEST
+#         )
+
+
+class ChangePasswordView(GenericAPIView):
     """
     تغییر رمز عبور کاربر جاری
     
@@ -97,9 +177,10 @@ class ChangePasswordView(APIView):
     }
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
     
     def post(self, request):
-        serializer = ChangePasswordSerializer(
+        serializer = self.get_serializer(
             data=request.data,
             context={'request': request}
         )
@@ -115,6 +196,7 @@ class ChangePasswordView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
 
 
 class UserViewSet(mixins.CreateModelMixin,

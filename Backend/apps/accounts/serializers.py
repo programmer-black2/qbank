@@ -272,3 +272,9 @@ class ResetPasswordSerializer(serializers.Serializer):
                 "confirm_password": "رمز عبور جدید و تکرار آن مطابقت ندارند"
             })
         return attrs
+    
+    
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=True)
+
+LogoutSerializer
