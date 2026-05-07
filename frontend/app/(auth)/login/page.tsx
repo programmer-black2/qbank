@@ -3,15 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { loginUser } from "../../../services/auth/auth.api";
 
 export default function login() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
+    phone_or_email: '',
     password: '',
     rememberMe: false
   });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -21,11 +25,33 @@ export default function login() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('ورود با اطلاعات:', formData);
-    // اینجا منطق ورود رو پیاده‌سازی کنید
-    // router.push('/dashboard');
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await loginUser({
+        phone_or_email: formData.phone_or_email,
+        password: formData.password,
+      });
+
+      console.log("LOGIN SUCCESS:", response);
+
+      localStorage.setItem("access", response.access);
+      localStorage.setItem("refresh", response.refresh);
+
+      router.push("/dashboard");
+
+    } catch (err: any) {
+      console.error(err);
+
+      setError("نام کاربری یا رمز عبور اشتباه است");
+
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,10 +81,10 @@ export default function login() {
           {/* بک‌گراندهای تزئینی */}
           <div className="absolute top-[-10%] left-[-5%] w-96 h-96 bg-indigo-100 rounded-full blur-[120px] opacity-60"></div>
           <div className="absolute bottom-[-10%] right-[-5%] w-96 h-96 bg-blue-100 rounded-full blur-[120px] opacity-60"></div>
-          
+
           {/* کارت اصلی */}
           <div className="bg-white/80 backdrop-blur-xl w-full max-w-[900px] rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col md:flex-row border border-white z-10 animate-in fade-in duration-700">
-            
+
             {/* بخش فرم - سمت راست در موبایل، چپ در دسکتاپ */}
             <div className="w-full md:w-1/2 p-8 md:p-14 bg-white">
               <div className="mb-10 text-center md:text-right">
@@ -71,7 +97,7 @@ export default function login() {
                 <h1 className="text-3xl font-black text-slate-800 mb-2">خوش برگشتی!</h1>
                 <p className="text-slate-400 text-sm italic font-medium">لطفاً اطلاعات حساب خود را وارد کنید</p>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* فیلد نام کاربری */}
                 <div className="space-y-2 flex flex-col">
@@ -80,17 +106,17 @@ export default function login() {
                     <svg className="w-5 h-5 text-slate-400" focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 5.9c1.16 0 2.1.94 2.1 2.1s-.94 2.1-2.1 2.1S9.9 9.16 9.9 8s.94-2.1 2.1-2.1m0 9c2.97 0 6.1 1.46 6.1 2.1v1.1H5.9V17c0-.64 3.13-2.1 6.1-2.1M12 4C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4m0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4" />
                     </svg>
-                    <input 
-                      type="text" 
-                      name="username"
-                      value={formData.username}
+                    <input
+                      type="text"
+                      name="phone_or_email"
+                      value={formData.phone_or_email}
                       onChange={handleChange}
-                      placeholder="Username" 
+                      placeholder="Phone or Email"
                       className="w-full p-4 bg-transparent outline-none text-sm text-slate-700 ltr text-right"
                     />
                   </div>
                 </div>
-                
+
                 {/* فیلد رمز عبور */}
                 <div className="space-y-2 flex flex-col relative">
                   <label className="text-xs font-bold text-slate-500 mr-1">رمز عبور</label>
@@ -98,16 +124,16 @@ export default function login() {
                     <svg className="w-5 h-5 text-slate-400" focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2M9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9zm9 14H6V10h12zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2" />
                     </svg>
-                    <input 
+                    <input
                       type={showPassword ? "text" : "password"}
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      placeholder="••••••••" 
+                      placeholder="••••••••"
                       className="w-full p-4 bg-transparent outline-none text-sm text-slate-700 ltr text-right"
                     />
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute left-4 top-[33px] text-slate-400 hover:text-blue-600 transition-colors"
@@ -117,11 +143,11 @@ export default function login() {
                     </svg>
                   </button>
                 </div>
-                
+
                 {/* گزینه‌های اضافی */}
                 <div className="flex justify-between items-center text-xs px-1">
                   <label className="flex items-center gap-2 text-slate-500 cursor-pointer">
-                    <input 
+                    <input
                       type="checkbox"
                       name="rememberMe"
                       checked={formData.rememberMe}
@@ -134,19 +160,21 @@ export default function login() {
                     فراموشی رمز؟
                   </Link>
                 </div>
-                
+
                 {/* دکمه ورود */}
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-100 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
-                  <span>ورود به پنل کاربری</span>
+                  <span>
+                    {loading ? "در حال ورود..." : "ورود به پنل کاربری"}
+                  </span>
                   <svg className="w-5 h-5" focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z" />
                   </svg>
                 </button>
               </form>
-              
+
               {/* لینک ثبت نام */}
               <div className="mt-8 text-center">
                 <p className="text-sm text-slate-500">
@@ -157,7 +185,7 @@ export default function login() {
                 </p>
               </div>
             </div>
-            
+
             {/* بخش سمت راست - تزئینی */}
             <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 p-12 text-white flex-col justify-center items-center relative text-center">
               <div className="relative z-10 space-y-6">
@@ -171,7 +199,7 @@ export default function login() {
                   با ورود به حساب کاربری خود، تمام سوابق آزمون‌ها و پیشرفت تحصیلی شما به صورت هوشمند تحلیل می‌شود.
                 </p>
               </div>
-              
+
               {/* افکت‌های پس زمینه */}
               <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
                 <div className="absolute top-[20%] right-[10%] w-32 h-32 bg-white rounded-full blur-3xl"></div>
