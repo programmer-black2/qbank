@@ -42,7 +42,7 @@ export default function login() {
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);
 
-      router.push("/dashboard");
+      router.push("/admin/dashboard");
 
     } catch (err: any) {
       console.error(err);
