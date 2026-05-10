@@ -3,7 +3,7 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 from apps.core.models import EducationStage, Course, Year, ExamType
 from .serializers import (
     EducationStageSerializer, CourseSerializer,
@@ -141,9 +141,18 @@ class CategoryTreeView(APIView):
     
     def get(self, request):
         tree = []
-        stages = EducationStage.objects.annotate(
-            courses_count=Count('courses')
-        ).filter(courses_count__gt=0).order_by('id')
+        exam_types_queryset = ExamType.objects.annotate(
+            questions_count=Count('questions')
+        ).order_by('name_exam_types')
+        years_queryset = Year.objects.prefetch_related(
+            Prefetch('exam_types', queryset=exam_types_queryset)
+        ).order_by('years_number')
+        courses_queryset = Course.objects.prefetch_related(
+            Prefetch('years', queryset=years_queryset)
+        ).order_by('name_course')
+        stages = EducationStage.objects.prefetch_related(
+            Prefetch('courses', queryset=courses_queryset)
+        ).order_by('id')
         
         for stage in stages:
             stage_node = {
@@ -153,41 +162,41 @@ class CategoryTreeView(APIView):
                 'children': []
             }
             
-            courses = Course.objects.filter(stage=stage).annotate(
-                years_count=Count('years')
-            ).filter(years_count__gt=0).order_by('name_course')
-            
-            for course in courses:
+            for course in stage.courses.all():
                 course_node = {
                     'id': course.id,
                     'name': course.name_course,
                     'type': 'course',
-                    'children': []
+                    'children': [],
+                    'metadata': {
+                        'stage_id': stage.id,
+                        'stage_name': stage.name_education_stage
+                    }
                 }
                 
-                years = Year.objects.filter(course=course).annotate(
-                    exam_types_count=Count('exam_types')
-                ).filter(exam_types_count__gt=0).order_by('years_number')
-                
-                for year in years:
+                for year in course.years.all():
                     year_node = {
                         'id': year.id,
                         'name': f"سال {year.years_number}",
                         'type': 'year',
-                        'children': []
+                        'children': [],
+                        'metadata': {
+                            'course_id': course.id,
+                            'course_name': course.name_course,
+                            'stage_id': stage.id,
+                            'stage_name': stage.name_education_stage,
+                            'year_number': year.years_number
+                        }
                     }
                     
-                    exam_types = ExamType.objects.filter(year=year).annotate(
-                        questions_count=Count('questions')
-                    ).order_by('name_exam_types')
-                    
-                    for exam_type in exam_types:
+                    for exam_type in year.exam_types.all():
                         exam_node = {
                             'id': exam_type.id,
                             'name': exam_type.get_name_exam_types_display(),
                             'type': 'exam_type',
                             'question_count': exam_type.questions_count,
                             'metadata': {
+                                'name_exam_types': exam_type.name_exam_types,
                                 'year_id': year.id,
                                 'course_id': course.id,
                                 'stage_id': stage.id,
@@ -198,14 +207,11 @@ class CategoryTreeView(APIView):
                         }
                         year_node['children'].append(exam_node)
                     
-                    if year_node['children']:
-                        course_node['children'].append(year_node)
+                    course_node['children'].append(year_node)
                 
-                if course_node['children']:
-                    stage_node['children'].append(course_node)
+                stage_node['children'].append(course_node)
             
-            if stage_node['children']:
-                tree.append(stage_node)
+            tree.append(stage_node)
         
         # سریالایز کردن درخت (اختیاری است، چون قبلاً دیکشنری ساخته شده)
         # می‌توانید از CategoryNodeSerializer استفاده کنید اما دیکشنری آماده است

@@ -1,4 +1,9 @@
 import api from "@/lib/axios";
+import type { AxiosRequestConfig } from "axios";
+
+type AuthRequestConfig = AxiosRequestConfig & {
+  _skipAuth?: boolean;
+};
 
 
 // ================= LOGIN =================
@@ -18,9 +23,15 @@ export const loginUser = async (data: LoginData) => {
 // ================= LOGOUT =================
 
 export const logoutUser = async (refresh: string) => {
-  const response = await api.post("/api/auth/logout/", {
-    refresh,
-  });
+  const response = await api.post(
+    "/api/auth/logout/",
+    {
+      refresh,
+    },
+    {
+      _skipAuth: true,
+    } as AuthRequestConfig
+  );
 
   return response.data;
 };

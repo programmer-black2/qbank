@@ -39,10 +39,22 @@ class CourseSerializer(serializers.ModelSerializer):
     def validate(self, data):
         stage = data.get('stage')
         name_course = data.get('name_course')
-        if Course.objects.filter(stage=stage, name_course=name_course).exists():
-            raise serializers.ValidationError(
-                {"name_course": "این دوره برای این مقطع قبلاً ثبت شده است"}
-            )
+
+        if self.instance:
+            if stage is None:
+                stage = self.instance.stage
+            if name_course is None:
+                name_course = self.instance.name_course
+
+        if stage and name_course:
+            qs = Course.objects.filter(stage=stage, name_course=name_course)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"name_course": "این دوره برای این مقطع قبلاً ثبت شده است"}
+                )
         return data
 
 
@@ -110,10 +122,22 @@ class ExamTypeSerializer(serializers.ModelSerializer):
     def validate(self, data):
         year = data.get('year')
         name_exam_types = data.get('name_exam_types')
-        if ExamType.objects.filter(year=year, name_exam_types=name_exam_types).exists():
-            raise serializers.ValidationError(
-                {"name_exam_types": "این نوع آزمون برای این سال قبلاً ثبت شده است"}
-            )
+
+        if self.instance:
+            if year is None:
+                year = self.instance.year
+            if name_exam_types is None:
+                name_exam_types = self.instance.name_exam_types
+
+        if year and name_exam_types:
+            qs = ExamType.objects.filter(year=year, name_exam_types=name_exam_types)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"name_exam_types": "این نوع آزمون برای این سال قبلاً ثبت شده است"}
+                )
         return data
 
 

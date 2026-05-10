@@ -1,66 +1,269 @@
-"use client";
+'use client';
 
-import { DataGrid } from "@mui/x-data-grid";
+import { useState } from 'react';
+import { Question } from '@/services/question/question.api';
 
 interface Props {
-  rows: any[];
+  questions: Question[];
+  loading?: boolean;
+  onEdit: (question: Question) => void;
+  onDelete: (id: number) => void;
+  onView: (question: Question) => void;
+}
 
+export default function QuestionTable({ questions, loading, onEdit, onDelete, onView }: Props) {
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+
+  const getQuestionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'mcq': return 'چند گزینه‌ای';
+      case 'descriptive': return 'تشریحی';
+      default: return type;
+    }
+  };
+
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'آسان';
+      case 'medium': return 'متوسط';
+      case 'hard': return 'سخت';
+      case 'unknown': return 'نامشخص';
+      default: return difficulty;
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      case 'unknown': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('fa-IR');
+  };
+
+  const truncateText = (text: string, maxLength: number = 100) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="animate-pulse space-y-4">
+          {[...Array(5)].map((_, index) => (
+            <div key={index} className="h-16 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!questions.length) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">هیچ سوالی یافت نشد</h3>
+        <p className="text-gray-500">سوال جدید اضافه کنید یا فیلترهای جستجو را تغییر دهید</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 className="text-lg font-semibold text-gray-900">
+          لیست سوالات ({questions.length} مورد)
+        </h3>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                شناسه
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                متن سوال
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                نوع
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                سطح دشواری
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                دسته‌بندی
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ایجاد شده
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                عملیات
+              </th>
+            </tr>
+          </thead>
+          
+          <tbody className="bg-white divide-y divide-gray-200">
+            {questions.map((question) => (
+              <tr key={question.id} className="hover:bg-gray-50 transition-colors">
+                {/* ID */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  #{question.id}
+                </td>
+
+                {/* Question Text */}
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="max-w-xs">
+                    <p className="line-clamp-2" title={question.question_text}>
+                      {truncateText(question.question_text)}
+                    </p>
+                  </div>
+                </td>
+
+                {/* Question Type */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    question.question_type === 'mcq' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-purple-100 text-purple-800'
+                  }`}>
+                    {getQuestionTypeLabel(question.question_type)}
+                  </span>
+                </td>
+
+                {/* Difficulty */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    getDifficultyColor(question.difficulty)
+                  }`}>
+                    {getDifficultyLabel(question.difficulty)}
+                  </span>
+                </td>
+
+                {/* Category */}
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="flex flex-col space-y-1">
+                    {question.stage_name && (
+                      <span className="text-xs text-gray-600">
+                        📚 {question.stage_name}
+                      </span>
+                    )}
+                    {question.course_name && (
+                      <span className="text-xs text-gray-600">
+                        📖 {question.course_name}
+                      </span>
+                    )}
+                    {question.year_number && (
+                      <span className="text-xs text-gray-600">
+                        📅 سال {question.year_number}
+                      </span>
+                    )}
+                    {question.exam_type_name && (
+                      <span className="text-xs font-medium text-blue-600">
+                        📋 {question.exam_type_name === 'midterm' ? 'میان‌ترم' : 'پایان‌ترم'}
+                      </span>
+                    )}
+                  </div>
+                </td>
+
+                {/* Created At */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div className="flex flex-col">
+                    <span>{formatDate(question.created_at)}</span>
+                    {question.created_by_name && (
+                      <span className="text-xs text-gray-400">
+                        توسط {question.created_by_name}
+                      </span>
+                    )}
+                  </div>
+                </td>
+
+                {/* Actions */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex items-center space-x-3 space-x-reverse">
+                    {/* View */}
+                    <button
+                      onClick={() => onView(question)}
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                      title="مشاهده جزئیات"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+
+                    {/* Edit */}
+                    <button
+                      onClick={() => onEdit(question)}
+                      className="text-green-600 hover:text-green-800 transition-colors"
+                      title="ویرایش"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => onDelete(question.id!)}
+                      className="text-red-600 hover:text-red-800 transition-colors"
+                      title="حذف"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Keep backward compatibility
+interface OldProps {
+  rows: any[];
   onDelete: (id: number) => void;
 }
 
-export default function QuestionTable({
-  rows,
-  onDelete,
-}: Props) {
-  const columns = [
-    {
-      field: "id",
-      headerName: "#",
-      width: 80,
-    },
+export function QuestionTableOld({ rows, onDelete }: OldProps) {
+  const handleEdit = (question: any) => {
+    console.log('Edit not implemented in old version');
+  };
 
-    {
-      field: "question_text",
-      headerName: "متن سوال",
-      flex: 1,
-    },
-
-    {
-      field: "question_type",
-      headerName: "نوع سوال",
-      width: 140,
-    },
-
-    {
-      field: "difficulty",
-      headerName: "سختی",
-      width: 140,
-    },
-
-    {
-      field: "actions",
-      headerName: "عملیات",
-      width: 150,
-
-      renderCell: (params: any) => (
-        <button
-          onClick={() =>
-            onDelete(params.row.id)
-          }
-          className="text-red-500"
-        >
-          حذف
-        </button>
-      ),
-    },
-  ];
+  const handleView = (question: any) => {
+    console.log('View not implemented in old version');
+  };
 
   return (
-    <div style={{ height: 600 }}>
-      <DataGrid
-        rows={rows}
-        columns={columns}
-      />
-    </div>
+    <QuestionTable 
+      questions={rows} 
+      onEdit={handleEdit} 
+      onDelete={onDelete} 
+      onView={handleView} 
+    />
   );
 }

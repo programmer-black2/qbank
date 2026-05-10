@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, logoutUser } from "@/services/auth/auth.api";
 import { 
@@ -8,11 +8,14 @@ import {
   getEducationStages,
   getCourses,
   getYears,
-  getExamTypes,
   createEducationStage,
   createCourse,
   createYear,
   createExamType,
+  updateEducationStage,
+  updateCourse,
+  updateYear,
+  updateExamType,
   deleteEducationStage,
   deleteCourse,
   deleteYear,
@@ -20,41 +23,81 @@ import {
   CategoryNode,
   EducationStage,
   Course,
-  Year,
-  ExamType
+  Year
 } from "@/services/core/core.api";
+
+type CategoryItemType = 'stage' | 'course' | 'year' | 'exam_type';
+type ModalMode = 'create' | 'edit';
+type CoreFormData = Partial<Record<
+  'name_education_stage' | 'name_course' | 'stage_id' | 'years_number' | 'course_id' | 'name_exam_types' | 'year_id',
+  string | number | undefined
+>>;
+
+interface AdminUser {
+  full_name?: string;
+}
+
+const getInitialFormData = (
+  type: CategoryItemType,
+  parentId?: number,
+  initialData?: CoreFormData
+): CoreFormData => {
+  if (initialData) {
+    return initialData;
+  }
+
+  if (type === 'course' && parentId) {
+    return { stage_id: parentId };
+  }
+  if (type === 'year' && parentId) {
+    return { course_id: parentId };
+  }
+  if (type === 'exam_type' && parentId) {
+    return { year_id: parentId };
+  }
+
+  return {};
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && !('response' in error)) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as {
+      response?: {
+        data?: {
+          message?: string;
+          error?: string;
+          detail?: string;
+        };
+      };
+    }).response;
+
+    return response?.data?.message || response?.data?.error || response?.data?.detail || fallback;
+  }
+
+  return fallback;
+};
 
 interface CreateItemModalProps {
   isOpen: boolean;
-  type: 'stage' | 'course' | 'year' | 'exam_type';
+  type: CategoryItemType;
+  mode: ModalMode;
   parentId?: number;
+  initialData?: CoreFormData;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: CoreFormData) => Promise<void>;
   stages: EducationStage[];
   courses: Course[];
   years: Year[];
 }
 
-function CreateItemModal({ isOpen, type, parentId, onClose, onSubmit, stages, courses, years }: CreateItemModalProps) {
-  const [formData, setFormData] = useState<any>({});
+function CreateItemModal({ isOpen, type, mode, parentId, initialData, onClose, onSubmit, stages, courses, years }: CreateItemModalProps) {
+  const [formData, setFormData] = useState<CoreFormData>(() => getInitialFormData(type, parentId, initialData));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-
-  useEffect(() => {
-    if (isOpen) {
-      // Reset form when modal opens
-      setError('');
-      if (type === 'course' && parentId) {
-        setFormData({ stage_id: parentId });
-      } else if (type === 'year' && parentId) {
-        setFormData({ course_id: parentId });
-      } else if (type === 'exam_type' && parentId) {
-        setFormData({ year_id: parentId });
-      } else {
-        setFormData({});
-      }
-    }
-  }, [isOpen, type, parentId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,9 +123,9 @@ function CreateItemModal({ isOpen, type, parentId, onClose, onSubmit, stages, co
       }
 
       await onSubmit(processedData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Form submission error:', error);
-      setError(error.response?.data?.message || error.message || 'خطا در ثبت اطلاعات');
+      setError(getApiErrorMessage(error, 'خطا در ثبت اطلاعات'));
     } finally {
       setLoading(false);
     }
@@ -99,11 +142,12 @@ function CreateItemModal({ isOpen, type, parentId, onClose, onSubmit, stages, co
   if (!isOpen) return null;
 
   const getTitle = () => {
+    const action = mode === 'edit' ? 'ویرایش' : 'افزودن';
     switch (type) {
-      case 'stage': return 'افزودن مقطع تحصیلی جدید';
-      case 'course': return 'افزودن دوره جدید';
-      case 'year': return 'افزودن سال جدید';
-      case 'exam_type': return 'افزودن نوع آزمون جدید';
+      case 'stage': return `${action} مقطع تحصیلی`;
+      case 'course': return `${action} دوره`;
+      case 'year': return `${action} سال`;
+      case 'exam_type': return `${action} نوع آزمون`;
     }
   };
 
@@ -258,7 +302,7 @@ function CreateItemModal({ isOpen, type, parentId, onClose, onSubmit, stages, co
                   <span>در حال ثبت...</span>
                 </div>
               ) : (
-                'ایجاد'
+                mode === 'edit' ? 'ذخیره تغییرات' : 'ایجاد'
               )}
             </button>
             <button
@@ -280,12 +324,14 @@ function TreeNodeComponent({
   node, 
   level = 0, 
   onAdd, 
+  onEdit,
   onDelete 
 }: { 
   node: CategoryNode; 
   level?: number;
-  onAdd: (type: string, parentId?: number) => void;
-  onDelete: (type: string, id: number) => void;
+  onAdd: (type: CategoryItemType, parentId?: number) => void;
+  onEdit: (node: CategoryNode) => void;
+  onDelete: (type: CategoryItemType, id: number) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -364,7 +410,7 @@ function TreeNodeComponent({
         <div className="flex items-center space-x-2 space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity">
           {canAdd(node.type) && (
             <button
-              onClick={() => onAdd(getNextType(node.type)!, node.id)}
+              onClick={() => onAdd(getNextType(node.type) as CategoryItemType, node.id)}
               className="text-green-600 hover:text-green-800"
               title="افزودن زیرمجموعه"
             >
@@ -373,6 +419,15 @@ function TreeNodeComponent({
               </svg>
             </button>
           )}
+          <button
+            onClick={() => onEdit(node)}
+            className="text-blue-600 hover:text-blue-800"
+            title="ویرایش"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 14.828 8 16l1.172-4 8.414-8.414z" />
+            </svg>
+          </button>
           <button
             onClick={() => onDelete(node.type, node.id)}
             className="text-red-600 hover:text-red-800"
@@ -393,6 +448,7 @@ function TreeNodeComponent({
               node={child} 
               level={level + 1}
               onAdd={onAdd}
+              onEdit={onEdit}
               onDelete={onDelete}
             />
           ))}
@@ -404,37 +460,23 @@ function TreeNodeComponent({
 
 export default function AdminCorePage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [treeData, setTreeData] = useState<CategoryNode[]>([]);
   const [stages, setStages] = useState<EducationStage[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [years, setYears] = useState<Year[]>([]);
-  const [examTypes, setExamTypes] = useState<ExamType[]>([]);
   
   const [modalData, setModalData] = useState<{
     isOpen: boolean;
-    type: 'stage' | 'course' | 'year' | 'exam_type';
+    type: CategoryItemType;
+    mode: ModalMode;
+    nodeId?: number;
     parentId?: number;
-  }>({ isOpen: false, type: 'stage' });
+    initialData?: CoreFormData;
+  }>({ isOpen: false, type: 'stage', mode: 'create' });
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const userData = await getCurrentUser();
-      setUser(userData);
-      await loadData();
-    } catch (error) {
-      router.push('/admin/login');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('Loading data...');
       const [treeResponse, stagesResponse, coursesResponse, yearsResponse] = await Promise.all([
@@ -458,7 +500,27 @@ export default function AdminCorePage() {
     } catch (error) {
       console.error('Error loading data:', error);
     }
-  };
+  }, []);
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const userData = await getCurrentUser();
+      setUser(userData);
+      await loadData();
+    } catch {
+      router.push('/admin/login');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadData, router]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      checkAuth();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [checkAuth]);
 
   const handleLogout = async () => {
     try {
@@ -483,45 +545,91 @@ export default function AdminCorePage() {
     router.push('/admin/dashboard');
   };
 
-  const handleAddItem = (type: 'stage' | 'course' | 'year' | 'exam_type', parentId?: number) => {
-    setModalData({ isOpen: true, type, parentId });
+  const handleAddItem = (type: CategoryItemType, parentId?: number) => {
+    setModalData({ isOpen: true, type, mode: 'create', parentId });
+  };
+
+  const handleEditItem = (node: CategoryNode) => {
+    const initialData = (() => {
+      switch (node.type) {
+        case 'stage':
+          return { name_education_stage: node.name };
+        case 'course':
+          return {
+            stage_id: node.metadata?.stage_id,
+            name_course: node.name
+          };
+        case 'year':
+          return {
+            course_id: node.metadata?.course_id,
+            years_number: node.metadata?.year_number
+          };
+        case 'exam_type':
+          return {
+            year_id: node.metadata?.year_id,
+            name_exam_types: node.metadata?.name_exam_types
+          };
+      }
+    })();
+
+    setModalData({
+      isOpen: true,
+      type: node.type,
+      mode: 'edit',
+      nodeId: node.id,
+      initialData
+    });
   };
 
   const handleCloseModal = () => {
-    setModalData({ isOpen: false, type: 'stage' });
+    setModalData({ isOpen: false, type: 'stage', mode: 'create' });
   };
 
-  const handleSubmitModal = async (formData: any) => {
-    console.log('Submitting:', modalData.type, formData);
+  const handleSubmitModal = async (formData: CoreFormData) => {
+    console.log('Submitting:', modalData.mode, modalData.type, formData);
     
     try {
-      let result;
+      let result: unknown;
+      const isEdit = modalData.mode === 'edit';
+
+      if (isEdit && !modalData.nodeId) {
+        throw new Error('شناسه مورد برای ویرایش پیدا نشد');
+      }
+
       switch (modalData.type) {
         case 'stage':
-          result = await createEducationStage(formData);
+          result = isEdit
+            ? await updateEducationStage(modalData.nodeId!, formData as { name_education_stage: string })
+            : await createEducationStage(formData as { name_education_stage: string });
           break;
         case 'course':
-          result = await createCourse(formData);
+          result = isEdit
+            ? await updateCourse(modalData.nodeId!, formData as { name_course: string; stage_id?: number })
+            : await createCourse(formData as { name_course: string; stage_id?: number });
           break;
         case 'year':
-          result = await createYear(formData);
+          result = isEdit
+            ? await updateYear(modalData.nodeId!, formData as { years_number: number; course_id?: number })
+            : await createYear(formData as { years_number: number; course_id?: number });
           break;
         case 'exam_type':
-          result = await createExamType(formData);
+          result = isEdit
+            ? await updateExamType(modalData.nodeId!, formData as { name_exam_types: string; year_id?: number })
+            : await createExamType(formData as { name_exam_types: string; year_id?: number });
           break;
       }
       
-      console.log('Created successfully:', result);
+      console.log('Saved successfully:', result);
       await loadData();
       handleCloseModal();
-    } catch (error: any) {
-      console.error('Error creating item:', error);
+    } catch (error: unknown) {
+      console.error('Error saving item:', error);
       // خطا را دوباره throw کن تا modal بتونه handle کنه
       throw error;
     }
   };
 
-  const handleDeleteItem = async (type: string, id: number) => {
+  const handleDeleteItem = async (type: CategoryItemType, id: number) => {
     if (!confirm('آیا از حذف این مورد مطمئن هستید؟')) return;
 
     try {
@@ -541,8 +649,9 @@ export default function AdminCorePage() {
       }
       
       await loadData();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error deleting item:', error);
+      alert(getApiErrorMessage(error, 'خطا در حذف مورد انتخاب‌شده'));
     }
   };
 
@@ -650,6 +759,7 @@ export default function AdminCorePage() {
                   key={node.id} 
                   node={node}
                   onAdd={handleAddItem}
+                  onEdit={handleEditItem}
                   onDelete={handleDeleteItem}
                 />
               ))}
@@ -659,16 +769,20 @@ export default function AdminCorePage() {
       </main>
 
       {/* Modal */}
-      <CreateItemModal
-        isOpen={modalData.isOpen}
-        type={modalData.type}
-        parentId={modalData.parentId}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitModal}
-        stages={stages}
-        courses={courses}
-        years={years}
-      />
+      {modalData.isOpen && (
+        <CreateItemModal
+          isOpen={modalData.isOpen}
+          type={modalData.type}
+          mode={modalData.mode}
+          parentId={modalData.parentId}
+          initialData={modalData.initialData}
+          onClose={handleCloseModal}
+          onSubmit={handleSubmitModal}
+          stages={stages}
+          courses={courses}
+          years={years}
+        />
+      )}
     </div>
   );
 }

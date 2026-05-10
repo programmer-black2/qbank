@@ -82,27 +82,30 @@ class LogoutView(GenericAPIView):
         "refresh": "your_refresh_token"
     }
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class = LogoutSerializer
     
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        refresh_token = serializer.validated_data.get('refresh')
+
         try:
-            refresh_token = serializer.validated_data.get('refresh')
             token = RefreshToken(refresh_token)
-            token.blacklist()
-            
-            return Response(
-                {'message': 'با موفقیت خارج شدید'},
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+            if hasattr(token, 'blacklist'):
+                token.blacklist()
+        except Exception:
+            # Logout should be idempotent from the client perspective. The
+            # frontend clears local tokens even when the refresh token is
+            # already expired, rotated, or blacklist storage is unavailable.
+            pass
+
+        return Response(
+            {'message': 'با موفقیت خارج شدید'},
+            status=status.HTTP_200_OK
+        )
 
 
 

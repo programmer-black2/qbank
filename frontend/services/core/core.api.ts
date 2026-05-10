@@ -44,6 +44,7 @@ export interface CategoryNode {
     year_id?: number;
     course_id?: number;
     stage_id?: number;
+    name_exam_types?: string;
     year_number?: number;
     course_name?: string;
     stage_name?: string;

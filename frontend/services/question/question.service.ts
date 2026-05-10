@@ -1,4 +1,16 @@
 import {
+  getQuestions,
+  getQuestion,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+  getCategoryTree,
+  getQuestionStatistics,
+  getStages,
+  getCourses,
+  getYears,
+  getExamTypes,
+  // Keep backward compatibility
   getQuestionsApi,
   createQuestionApi,
   deleteQuestionApi,
@@ -6,11 +18,26 @@ import {
 } from "./question.api";
 
 export const questionService = {
-  getQuestions: getQuestionsApi,
+  // New API methods
+  getQuestions,
+  getQuestion,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+  
+  // Categories
+  getCategoryTree,
+  getStages,
+  getCourses,
+  getYears,
+  getExamTypes,
+  
+  // Statistics
+  getStatistics: getQuestionStatistics,
 
-  createQuestion: createQuestionApi,
-
-  deleteQuestion: deleteQuestionApi,
-
-  getCourses: getCoursesApi,
+  // Backward compatibility (keep old method names)
+  getQuestionsApi,
+  createQuestionApi,
+  deleteQuestionApi,
+  getCoursesApi,
 };
