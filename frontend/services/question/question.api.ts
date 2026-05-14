@@ -144,6 +144,24 @@ export const deleteQuestion = async (id: number): Promise<void> => {
   });
 };
 
+export const uploadQuestionMedia = async (files: File[]): Promise<QuestionMedia[]> => {
+  const token = localStorage.getItem("access");
+  const formData = new FormData();
+
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await api.post("/api/questions/questions/upload-media/", formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data;
+};
+
 // ================= CATEGORY TREE =================
 
 export const getCategoryTree = async (): Promise<CategoryTreeNode[]> => {

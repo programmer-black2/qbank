@@ -1,24 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/services/auth/auth.api';
+import AdminHeader from '@/components/ui/AdminHeader';
 import QuestionForm from "../../../components/question/QuestionForm";
 import QuestionTable from "../../../components/question/QuestionTable";
-import EmptyState from "../../../components/question/emptyState";
 import { Dialog, DialogContent } from "@mui/material";
 import { questionService } from "../../../services/question/question.service";
-import { Question, QuestionListResponse } from "../../../services/question/question.api";
+import { Question, QuestionStatistics } from "../../../services/question/question.api";
 
 export default function AdminQuestionPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [questionStats, setQuestionStats] = useState<any>(null);
+  const [questionStats, setQuestionStats] = useState<QuestionStatistics | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [viewingQuestion, setViewingQuestion] = useState<Question | null>(null);
-  const [activeTab, setActiveTab] = useState<"questions" | "comments">("questions");
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -27,26 +27,16 @@ export default function AdminQuestionPage() {
     exam_type: ''
   });
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      loadQuestions();
-    }
-  }, [searchTerm, filters, user]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
-      const userData = await getCurrentUser();
-      setUser(userData);
-    } catch (error) {
+      await getCurrentUser();
+      setIsAuthenticated(true);
+    } catch {
       router.push('/admin/login');
     }
-  };
+  }, [router]);
 
-  const loadQuestions = async () => {
+  const loadQuestions = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
@@ -68,7 +58,25 @@ export default function AdminQuestionPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, searchTerm]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      checkAuth();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const timeoutId = window.setTimeout(() => {
+        loadQuestions();
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [isAuthenticated, loadQuestions]);
 
   const handleCreateQuestion = async (questionData: Question) => {
     try {
@@ -107,19 +115,39 @@ export default function AdminQuestionPage() {
     }
   };
 
-  const handleEditQuestion = (question: Question) => {
-    setEditingQuestion(question);
+  const loadQuestionDetail = async (question: Question) => {
+    if (!question.id) {
+      return question;
+    }
+
+    setDetailLoadingId(question.id);
+
+    try {
+      return await questionService.getQuestion(question.id);
+    } catch (error) {
+      console.error('Error loading question details:', error);
+      alert('خطا در دریافت جزئیات کامل سوال');
+      return null;
+    } finally {
+      setDetailLoadingId(null);
+    }
+  };
+
+  const handleEditQuestion = async (question: Question) => {
+    const questionDetail = await loadQuestionDetail(question);
+
+    if (!questionDetail) return;
+
+    setEditingQuestion(questionDetail);
     setIsModalOpen(true);
   };
 
-  const handleViewQuestion = (question: Question) => {
-    setViewingQuestion(question);
-  };
+  const handleViewQuestion = async (question: Question) => {
+    const questionDetail = await loadQuestionDetail(question);
 
-  const handleLogout = () => {
-    localStorage.removeItem('access');
-    localStorage.removeItem('refresh');
-    router.push('/admin/login');
+    if (!questionDetail) return;
+
+    setViewingQuestion(questionDetail);
   };
 
   const handleModalClose = () => {
@@ -136,7 +164,63 @@ export default function AdminQuestionPage() {
     });
   };
 
-  if (!user) {
+  const getExamTypeLabel = (examType?: string) => {
+    if (examType === 'midterm') return 'میان‌ترم';
+    if (examType === 'final') return 'پایان‌ترم';
+    return examType || '-';
+  };
+
+  const getMediaTypeLabel = (mediaType: string) => {
+    switch (mediaType) {
+      case 'image':
+        return 'تصویر';
+      case 'audio':
+        return 'صدا';
+      case 'video':
+        return 'ویدئو';
+      case 'pdf':
+        return 'PDF';
+      case 'document':
+        return 'فایل/سند';
+      default:
+        return mediaType;
+    }
+  };
+
+  const renderMediaList = (title: string, items = [] as NonNullable<Question['media_items']>) => (
+    <div>
+      <label className="text-sm font-medium text-gray-700">{title}:</label>
+      {items.length > 0 ? (
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {items.map((item) => (
+            <a
+              key={item.id || item.file_url}
+              href={item.file_url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-bold text-gray-900">
+                  {item.original_file_name || 'مشاهده فایل'}
+                </span>
+                <span className="rounded-full bg-white px-2 py-1 text-xs text-gray-600">
+                  {getMediaTypeLabel(item.media_type)}
+                </span>
+              </div>
+              {item.alt_text && (
+                <p className="mt-2 text-xs text-gray-500">{item.alt_text}</p>
+              )}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-gray-400">فایلی ثبت نشده است.</p>
+      )}
+    </div>
+  );
+
+  if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -146,38 +230,11 @@ export default function AdminQuestionPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <button
-                onClick={() => router.push('/admin/dashboard')}
-                className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 space-x-reverse"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span>بازگشت به داشبورد</span>
-              </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-xl font-semibold text-gray-900">مدیریت سوالات</h1>
-            </div>
-
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <span className="text-sm text-gray-600">
-                خوش آمدید، {user.full_name || user.phone}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-red-600 hover:text-red-800"
-              >
-                خروج
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminHeader
+        title="مدیریت سوالات"
+        subtitle="جستجو، فیلتر، ثبت و بررسی سوالات بانک سوال"
+        backHref="/admin/dashboard"
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
@@ -256,10 +313,10 @@ export default function AdminQuestionPage() {
 
         {/* Controls */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             
             {/* Search */}
-            <div className="flex-1 lg:max-w-md">
+            <div className="flex-1 xl:max-w-md">
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,11 +335,11 @@ export default function AdminQuestionPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <select
                 value={filters.question_type}
                 onChange={(e) => setFilters(prev => ({ ...prev, question_type: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:w-auto"
               >
                 <option value="">همه انواع</option>
                 <option value="mcq">چند گزینه‌ای</option>
@@ -292,7 +349,7 @@ export default function AdminQuestionPage() {
               <select
                 value={filters.difficulty}
                 onChange={(e) => setFilters(prev => ({ ...prev, difficulty: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:w-auto"
               >
                 <option value="">همه سطوح</option>
                 <option value="easy">آسان</option>
@@ -303,24 +360,29 @@ export default function AdminQuestionPage() {
 
               <button
                 onClick={clearFilters}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="w-full px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 sm:w-auto"
               >
                 پاک کردن فیلترها
               </button>
             </div>
 
-            {/* Add Button */}
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2 space-x-reverse"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span>سوال جدید</span>
+              سوال جدید
             </button>
           </div>
         </div>
+
+        {detailLoadingId && (
+          <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+            در حال دریافت جزئیات کامل سوال #{detailLoadingId}...
+          </div>
+        )}
 
         {/* Questions Table */}
         <QuestionTable
@@ -371,13 +433,15 @@ export default function AdminQuestionPage() {
                   </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div>
                     <label className="text-sm font-medium text-gray-700">متن سوال:</label>
-                    <p className="mt-1 text-gray-900 whitespace-pre-wrap">{viewingQuestion.question_text}</p>
+                    <p className="mt-1 rounded-xl bg-gray-50 p-3 text-gray-900 whitespace-pre-wrap">
+                      {viewingQuestion.question_text}
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="text-sm font-medium text-gray-700">نوع سوال:</label>
                       <p className="mt-1 text-gray-900">
@@ -392,13 +456,47 @@ export default function AdminQuestionPage() {
                          viewingQuestion.difficulty === 'hard' ? 'سخت' : 'نامشخص'}
                       </p>
                     </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">شناسه نوع آزمون:</label>
+                      <p className="mt-1 text-gray-900">{viewingQuestion.exam_type_id}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">ایجاد:</label>
+                      <p className="mt-1 text-gray-900">
+                        {viewingQuestion.created_at
+                          ? new Date(viewingQuestion.created_at).toLocaleString('fa-IR')
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">آخرین ویرایش:</label>
+                      <p className="mt-1 text-gray-900">
+                        {viewingQuestion.updated_at
+                          ? new Date(viewingQuestion.updated_at).toLocaleString('fa-IR')
+                          : '-'}
+                      </p>
+                    </div>
                   </div>
+
+                  {viewingQuestion.exam_type_detail && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">دسته‌بندی:</label>
+                      <div className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 sm:grid-cols-2">
+                        <span>مقطع: {viewingQuestion.exam_type_detail.stage_name}</span>
+                        <span>دوره: {viewingQuestion.exam_type_detail.course_name}</span>
+                        <span>سال: {viewingQuestion.exam_type_detail.year_number}</span>
+                        <span>نوع آزمون: {getExamTypeLabel(viewingQuestion.exam_type_detail.name_exam_types)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {renderMediaList('فایل‌ها و تصاویر سوال', viewingQuestion.media_items || [])}
 
                   {viewingQuestion.choices && viewingQuestion.choices.length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-gray-700">گزینه‌ها:</label>
                       <div className="mt-2 space-y-2">
-                        {viewingQuestion.choices.map((choice, index) => (
+                        {viewingQuestion.choices.map((choice) => (
                           <div key={choice.id} className={`p-3 rounded-lg border ${
                             choice.is_correct ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                           }`}>
@@ -419,16 +517,22 @@ export default function AdminQuestionPage() {
                     </div>
                   )}
 
-                  {viewingQuestion.answer && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">پاسخ تشریحی:</label>
-                      <div className="mt-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">
+                      پاسخ‌نامه تشریحی:
+                    </label>
+                    {viewingQuestion.answer ? (
+                      <div className="mt-1 rounded-lg border border-blue-200 bg-blue-50 p-3">
                         <p className="text-gray-900 whitespace-pre-wrap">
                           {viewingQuestion.answer.descriptive_answer_text}
                         </p>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-400">پاسخ‌نامه تشریحی ثبت نشده است.</p>
+                    )}
+                  </div>
+
+                  {renderMediaList('فایل‌ها و تصاویر پاسخ', viewingQuestion.answer_media_items || [])}
                 </div>
               </div>
             </DialogContent>

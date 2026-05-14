@@ -1,3 +1,8 @@
 /Backend/.venv
 Backend/.env
 frontend/.npmrc
+/Backend/media
+/Backend/apps/questions/__pycache__
+/Backend/apps/core/__pycache__
+/Backend/apps/exam/__pycache__
+/Backend/apps/accounts/__pycache__

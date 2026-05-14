@@ -1,29 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminHeader from '@/components/ui/AdminHeader';
 import { getCurrentUser, logoutUser } from "../../../services/auth/auth.api";
+
+interface AdminUser {
+  full_name?: string;
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
-    } catch (error) {
+    } catch {
       // اگر توکن نامعتبر بود، به صفحه لاگین برگرد
       router.push('/admin/login');
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      checkAuth();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [checkAuth]);
 
   const handleLogout = async () => {
     try {
@@ -63,38 +72,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">پنل مدیریت بانک سوال</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <div className="text-sm text-gray-600">
-                خوش آمدید، {user?.full_name || 'ادمین'}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 space-x-reverse"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span>خروج</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminHeader
+        title="پنل مدیریت بانک سوال"
+        subtitle="نمای کلی، آمار و مسیرهای سریع مدیریت محتوا"
+        userName={user?.full_name || 'ادمین'}
+        onLogout={handleLogout}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -104,7 +87,7 @@ export default function AdminDashboard() {
           <div className="max-w-2xl">
             <h2 className="text-3xl font-bold mb-2">به پنل مدیریت خوش آمدید!</h2>
             <p className="text-blue-100 text-lg">
-              از این پنل می‌توانید سوالات بانک سوال پزشکی را مدیریت کنید.
+              از این پنل می‌توانید سایت را مدیریت کنید.
             </p>
           </div>
         </div>
@@ -251,6 +234,86 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <h4 className="text-lg font-semibold text-gray-900 mb-2">گزارش‌ها و آمار</h4>
+              <p className="text-sm text-gray-600">بزودی...</p>
+            </div>
+
+            {/* مدیریت نوع اشتراک */}
+            <div className="group bg-gradient-to-r from-cyan-50 to-cyan-100 rounded-xl p-6 text-right border border-cyan-200 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-cyan-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 9v1m8-5a8 8 0 11-16 0 8 8 0 0116 0z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت نوع اشتراک</h4>
+              <p className="text-sm text-gray-600">بزودی...</p>
+            </div>
+
+            {/* مدیریت و دسترسی طراح سوالات */}
+            <div className="group bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl p-6 text-right border border-indigo-200 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.878.513L7 17l.659-3.95A2 2 0 018.172 12.172L9 13z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت و دسترسی طراح سوالات</h4>
+              <p className="text-sm text-gray-600">بزودی...</p>
+            </div>
+
+            {/* گزارش کاربران برای سوالات */}
+            <div className="group bg-gradient-to-r from-rose-50 to-rose-100 rounded-xl p-6 text-right border border-rose-200 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-rose-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.008v.008H12V16.5zm8.25 2.25H3.75L12 4.5l8.25 14.25z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">گزارش کاربران برای سوالات</h4>
+              <p className="text-sm text-gray-600">بزودی...</p>
+            </div>
+
+            {/* مدیریت آزمون‌ها */}
+            <div className="group bg-gradient-to-r from-teal-50 to-teal-100 rounded-xl p-6 text-right border border-teal-200 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-teal-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6m-7 4h8m-8 4h5m-7 8h10a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت آزمون‌ها</h4>
+              <p className="text-sm text-gray-600">بزودی...</p>
+            </div>
+
+            {/* تیکت‌های کاربران */}
+            <div className="group bg-gradient-to-r from-amber-50 to-amber-100 rounded-xl p-6 text-right border border-amber-200 opacity-50 cursor-not-allowed">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-amber-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8m-8 4h5m8-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">تیکت‌های کاربران</h4>
               <p className="text-sm text-gray-600">بزودی...</p>
             </div>
 

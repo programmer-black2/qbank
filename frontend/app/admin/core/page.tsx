@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, logoutUser } from "@/services/auth/auth.api";
+import { getCurrentUser } from "@/services/auth/auth.api";
+import AdminHeader from "@/components/ui/AdminHeader";
 import { 
   getCategoryTree, 
   getEducationStages,
@@ -460,7 +461,7 @@ function TreeNodeComponent({
 
 export default function AdminCorePage() {
   const router = useRouter();
-  const [user, setUser] = useState<AdminUser | null>(null);
+  const [, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [treeData, setTreeData] = useState<CategoryNode[]>([]);
   const [stages, setStages] = useState<EducationStage[]>([]);
@@ -521,29 +522,6 @@ export default function AdminCorePage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [checkAuth]);
-
-  const handleLogout = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refresh');
-      if (refreshToken) {
-        await logoutUser(refreshToken);
-      }
-      
-      localStorage.removeItem('access');
-      localStorage.removeItem('refresh');
-      localStorage.removeItem('user');
-      
-      router.push('/admin/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      localStorage.clear();
-      router.push('/admin/login');
-    }
-  };
-
-  const backToDashboard = () => {
-    router.push('/admin/dashboard');
-  };
 
   const handleAddItem = (type: CategoryItemType, parentId?: number) => {
     setModalData({ isOpen: true, type, mode: 'create', parentId });
@@ -668,53 +646,18 @@ export default function AdminCorePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <button
-                onClick={backToDashboard}
-                className="flex items-center space-x-2 space-x-reverse text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="text-sm font-medium">بازگشت به داشبورد</span>
-              </button>
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M19 11H5m14-4H3m16 8H7m12 4H3" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">مدیریت طبقه‌بندی سوالات</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4 space-x-reverse">
-              <div className="text-sm text-gray-600">
-                خوش آمدید، {user?.full_name || 'ادمین'}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 space-x-reverse"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span>خروج</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminHeader
+        title="مدیریت طبقه‌بندی سوالات"
+        subtitle="مقاطع، دوره‌ها، سال‌ها و انواع آزمون را مرتب و قابل استفاده نگه دارید"
+        backHref="/admin/dashboard"
+        variant="green"
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Page Header */}
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm">
+        <div className="mb-8 flex flex-col gap-4 bg-white p-6 rounded-2xl shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-black text-gray-800">درخت طبقه‌بندی سوالات</h2>
             <p className="text-gray-500 text-sm mt-1">
@@ -724,12 +667,12 @@ export default function AdminCorePage() {
 
           <button
             onClick={() => handleAddItem('stage')}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors flex items-center space-x-2 space-x-reverse shadow-lg hover:shadow-xl"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-green-100 transition-colors hover:bg-green-700 sm:w-auto"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            <span>افزودن مقطع جدید</span>
+            افزودن مقطع جدید
           </button>
         </div>
 

@@ -205,7 +205,7 @@ export default function AdminLogin() {
         {/* فوتر */}
         <div className="mt-8 text-center">
           <p className="text-xs text-gray-500">
-            © 2024 پنل مدیریت بانک سوال پزشکی
+            © 2026 پنل مدیریت بانک سوال پزشکی
           </p>
         </div>
       </div>

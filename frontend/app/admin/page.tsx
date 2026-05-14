@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import AdminHeader from "@/components/ui/AdminHeader";
 import QuestionForm from "../../components/question/QuestionForm";
 
 import QuestionTable from "../../components/question/QuestionTable";
@@ -107,27 +108,22 @@ export default function AdminPage() {
   return (
     <section className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* header */}
-
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm">
-          <div>
-            <h1 className="text-2xl font-black text-gray-800">
-              پنل مدیریت هوشمند
-            </h1>
-
-            <p className="text-gray-500 text-sm mt-1">
-              مدیریت سوالات و نظرات کاربران
-            </p>
-          </div>
-
-          <button
-            onClick={() =>
-              setIsModalOpen(true)
+        <div className="mb-8 overflow-hidden rounded-3xl shadow-sm">
+          <AdminHeader
+            title="پنل مدیریت هوشمند"
+            subtitle="مدیریت سوالات و نظرات کاربران"
+            actions={
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:-translate-y-0.5 hover:bg-blue-700"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                ثبت سوال جدید
+              </button>
             }
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl"
-          >
-            ثبت سوال جدید
-          </button>
+          />
         </div>
 
         {/* tabs */}

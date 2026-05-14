@@ -4,6 +4,7 @@ import {
   createQuestion,
   updateQuestion,
   deleteQuestion,
+  uploadQuestionMedia,
   getCategoryTree,
   getQuestionStatistics,
   getStages,
@@ -24,6 +25,7 @@ export const questionService = {
   createQuestion,
   updateQuestion,
   deleteQuestion,
+  uploadQuestionMedia,
   
   // Categories
   getCategoryTree,

@@ -167,7 +167,12 @@
 
 
 
-from rest_framework import viewsets, filters
+from uuid import uuid4
+
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.utils.text import get_valid_filename
+from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -191,6 +196,18 @@ from .filters import QuestionFilter
 from rest_framework.parsers import MultiPartParser, JSONParser
 
 
+def get_media_type_from_content_type(content_type):
+    if content_type.startswith('image/'):
+        return 'image'
+    if content_type.startswith('audio/'):
+        return 'audio'
+    if content_type.startswith('video/'):
+        return 'video'
+    if content_type == 'application/pdf':
+        return 'pdf'
+    return 'document'
+
+
 
 class StandardPagination(PageNumberPagination):
     page_size = 20
@@ -201,6 +218,7 @@ class StandardPagination(PageNumberPagination):
 class QuestionViewSet(viewsets.ModelViewSet):
     """ViewSet برای مدیریت سوالات"""
     queryset = Question.objects.all().order_by('-created_at')
+    parser_classes = [MultiPartParser, JSONParser]
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = QuestionFilter
@@ -323,7 +341,34 @@ class QuestionViewSet(viewsets.ModelViewSet):
             'difficulty_stats': difficulty_stats,
             'today_questions': today_questions
         })
-    parser_classes = [MultiPartParser, JSONParser] 
+
+    @action(detail=False, methods=['post'], url_path='upload-media', parser_classes=[MultiPartParser])
+    def upload_media(self, request):
+        """آپلود فایل‌های سوال/پاسخ و برگرداندن آبجکت سازگار با QuestionMediaSerializer"""
+        files = request.FILES.getlist('files')
+
+        if not files:
+            return Response(
+                {'detail': 'حداقل یک فایل ارسال کنید.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        uploaded_items = []
+
+        for uploaded_file in files:
+            safe_name = get_valid_filename(uploaded_file.name)
+            storage_path = f"questions/{uuid4().hex}_{safe_name}"
+            saved_path = default_storage.save(storage_path, uploaded_file)
+            file_url = request.build_absolute_uri(f"{settings.MEDIA_URL}{saved_path}")
+
+            uploaded_items.append({
+                'media_type': get_media_type_from_content_type(uploaded_file.content_type or ''),
+                'file_url': file_url,
+                'original_file_name': uploaded_file.name,
+                'alt_text': '',
+            })
+
+        return Response(uploaded_items, status=status.HTTP_201_CREATED)
 
 class CategoryViewSet(viewsets.GenericViewSet):
     """ViewSet برای مدیریت دسته‌بندی‌ها"""
