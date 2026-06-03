@@ -5,7 +5,7 @@ export default function Login() {
   return (
     <>
       <div>
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-[vazir] dir-rtl overflow-hidden relative">
+        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 dir-rtl overflow-hidden relative">
           <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-blue-100 rounded-full blur-[120px] opacity-60 animate-pulse">
           </div>
           <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-yellow-100 rounded-full blur-[120px] opacity-60">

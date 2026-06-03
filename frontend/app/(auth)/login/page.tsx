@@ -77,7 +77,7 @@ export default function login() {
       </svg>
 
       <div>
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-[vazir] relative overflow-hidden">
+        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 relative overflow-hidden">
           {/* بک‌گراندهای تزئینی */}
           <div className="absolute top-[-10%] left-[-5%] w-96 h-96 bg-indigo-100 rounded-full blur-[120px] opacity-60"></div>
           <div className="absolute bottom-[-10%] right-[-5%] w-96 h-96 bg-blue-100 rounded-full blur-[120px] opacity-60"></div>

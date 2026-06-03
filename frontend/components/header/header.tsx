@@ -4,24 +4,20 @@ export default function Header() {
     <nav className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center ">
             <a className="flex items-center gap-2 group" href="/">
-              <div className="p-2 bg-blue-600 rounded-xl group-hover:rotate-12 transition-transform duration-300 shadow-lg shadow-blue-200">
-                <img
-                  alt="logo"
-                  loading="lazy"
-                  width="28"
-                  height="28"
-                  decoding="async"
-                  style={{ color: "transparent" }}
-                  src="/images/icon.webp"
-                />
-              </div>
-              <span className="font-black text-2xl text-slate-800 tracking-tight">
-                بانک سوال
-              </span>
+              <img
+                backdrop-blur
+                alt="logo"
+                loading="lazy"
+                width="150"
+                height="25"
+                decoding="async"
+                style={{ color: "transparent" }}
+                src="/images/LogoHeader.jpg"
+              />
             </a>
-            
+
             <div className="hidden lg:flex items-center gap-6">
               <div className="relative py-7 group cursor-pointer">
                 {/* <div className="flex items-center gap-1 text-sm font-bold transition-colors text-slate-600">
@@ -61,7 +57,7 @@ export default function Header() {
                 className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
                 href="#"
               >
-               دستیاری پزشکی
+                دستیاری پزشکی
               </a>
 
               <a

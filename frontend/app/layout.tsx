@@ -26,7 +26,7 @@ export default function RootLayout({
       dir="rtl"
       className={`${vazirFont.variable}`}
     >
-      <body className="bg-gray-50">
+      <body className={`${vazirFont.className} bg-gray-50`}>
         <main>{children}</main>
       </body>
     </html>

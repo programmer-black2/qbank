@@ -2,13 +2,21 @@
 @import "tailwindcss";
 
 @theme {
-  --font-vazir: var(--font-vazir);
+  --font-sans: var(--font-vazir), system-ui, sans-serif;
 }
 
 @layer base {
+  html,
   body {
     font-family: var(--font-vazir), system-ui, sans-serif;
     direction: rtl;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
 }
 

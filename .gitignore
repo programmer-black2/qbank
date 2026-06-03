@@ -6,3 +6,20 @@ frontend/.npmrc
 /Backend/apps/core/__pycache__
 /Backend/apps/exam/__pycache__
 /Backend/apps/accounts/__pycache__
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+Backend/venv/
+backend/venv/
+
+# VS Code
+.vscode/
+
+# env
+.env
+.env.*
