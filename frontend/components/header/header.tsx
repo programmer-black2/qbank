@@ -1,22 +1,20 @@
-// components/Header.jsx
+import Image from "next/image";
+import Link from "next/link";
+
 export default function Header() {
   return (
     <nav className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center ">
-            <a className="flex items-center gap-2 group" href="/">
-              <img
-                backdrop-blur
+            <Link className="flex items-center gap-2 group" href="/">
+              <Image
                 alt="logo"
-                loading="lazy"
-                width="150"
-                height="25"
-                decoding="async"
-                style={{ color: "transparent" }}
+                width={150}
+                height={25}
                 src="/images/LogoHeader.jpg"
               />
-            </a>
+            </Link>
 
             <div className="hidden lg:flex items-center gap-6">
               <div className="relative py-7 group cursor-pointer">
@@ -33,19 +31,19 @@ export default function Header() {
                 <div className="absolute bottom-5 right-0 h-0.5 bg-blue-600 transition-all duration-300 w-0 group-hover:w-full" />
               </div>
 
-              <a
+              <Link
                 className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="/questions/konkur"
+                href="/category/علوم-پایه-1"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M9.68 13.69 12 11.93l2.31 1.76-.88-2.85L15.75 9h-2.84L12 6.19 11.09 9H8.25l2.31 1.84zM20 10c0-4.42-3.58-8-8-8s-8 3.58-8 8c0 2.03.76 3.87 2 5.28V23l6-2 6 2v-7.72c1.24-1.41 2-3.25 2-5.28m-8-6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6m0 15-4 1.02v-3.1c1.18.68 2.54 1.08 4 1.08s2.82-.4 4-1.08v3.1z" />
                 </svg>
                 علوم پایه پزشکی
-              </a>
+              </Link>
 
               <a
                 className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="#"
+                href="/category/علوم-پایه-1"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3 1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9zm6.82 6L12 12.72 5.18 9 12 5.28zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73z" />
@@ -71,13 +69,13 @@ export default function Header() {
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <a
+              <Link
                 className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4 py-2 transition-colors"
                 href="/login"
               >
                 ورود
-              </a>
-              <a
+              </Link>
+              <Link
                 className="bg-blue-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
                 href="/register"
               >
@@ -85,7 +83,7 @@ export default function Header() {
                   <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z" />
                 </svg>
                 ثبت نام
-              </a>
+              </Link>
             </div>
           </div>
         </div>

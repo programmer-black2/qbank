@@ -1,4 +1,3 @@
-import Header from '@/components/header/header';
 import Image from 'next/image';
 
 const features = [
@@ -117,23 +116,25 @@ function FeaturesSection() {
 
         <div className="mt-20 flex justify-center transition-all duration-1000 transform translate-y-0 opacity-100">
           <button className="group relative overflow-hidden bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[20px] text-lg font-black transition-all shadow-xl shadow-blue-200 active:scale-95">
-            <span className="relative z-10 flex items-center gap-2">
-              ورود به بانک سوالات هوشمند
+            <a href="/category">
+              <span className="relative z-10 flex items-center gap-2">
+                ورود به بانک سوالات هوشمند
 
-              <svg
-                className="w-5 h-5 group-hover:-translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                ></path>
-              </svg>
-            </span>
+                <svg
+                  className="w-5 h-5 group-hover:-translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  ></path>
+                </svg>
+              </span>
+            </a>
           </button>
         </div>
       </div>
@@ -144,7 +145,6 @@ function FeaturesSection() {
 export default function Home() {
   return (
     <>
-      <Header />
       <header className="relative overflow-hidden bg-[#f8fafc] py-16 md:py-24 dir-rtl">
 
         {/* Background */}
@@ -224,9 +224,11 @@ export default function Home() {
                   شروع آزمون رایگان
                 </button>
 
-                <button className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg transition-all">
-                  مشاهده دروس
-                </button>
+                <a href="/category">
+                  <button className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg transition-all">
+                    مشاهده دروس
+                  </button>
+                </a>
 
               </div>
 

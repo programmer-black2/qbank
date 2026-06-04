@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import Header from "@/components/header/header";
 import './globals.css';
 
 const vazirFont = localFont({
@@ -11,8 +12,11 @@ const vazirFont = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Question Bank",
+  title: "Dentest",
   description: "QuestionBank",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -27,6 +31,7 @@ export default function RootLayout({
       className={`${vazirFont.variable}`}
     >
       <body className={`${vazirFont.className} bg-gray-50`}>
+        <Header />
         <main>{children}</main>
       </body>
     </html>

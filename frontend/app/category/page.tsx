@@ -1,31 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  BreadcrumbItem,
-  CategoryNode,
-  getCategoryBreadcrumb,
-  getCategoryTree,
-} from "@/services/core/core.api";
+import { CategoryNode, getCategoryTree } from "@/services/core/core.api";
 
-type BreadcrumbParams = {
-  exam_type_id?: number;
-  year_id?: number;
-  course_id?: number;
-  stage_id?: number;
-};
-
-type CategoryLevel = {
-  title: string;
-  description: string;
-  nodes: CategoryNode[];
-  level: number;
-};
-
-type CategoryCardProps = {
+type CategorySearchResult = {
   node: CategoryNode;
-  isSelected: boolean;
-  onSelect: (node: CategoryNode) => void;
+  path: CategoryNode[];
 };
 
 const typeLabels: Record<CategoryNode["type"], string> = {
@@ -44,91 +25,46 @@ const typeStyles: Record<CategoryNode["type"], string> = {
 
 const getNodeKey = (node: CategoryNode) => `${node.type}-${node.id}`;
 
-const getBreadcrumbParams = (node: CategoryNode): BreadcrumbParams => {
-  switch (node.type) {
-    case "stage":
-      return { stage_id: node.metadata?.stage_id ?? node.id };
-    case "course":
-      return { course_id: node.metadata?.course_id ?? node.id };
-    case "year":
-      return { year_id: node.metadata?.year_id ?? node.id };
-    case "exam_type":
-      return { exam_type_id: node.id };
+const toSlug = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\u0600-\u06FF\w-]/g, "");
+
+const getRootSegment = (node: CategoryNode) => `${toSlug(node.name)}-${node.id}`;
+
+const getCategoryHref = (path: CategoryNode[]) => {
+  const [root, ...children] = path;
+
+  if (!root) {
+    return "/category";
   }
+
+  return `/category/${[getRootSegment(root), ...children.map((node) => node.id)].join("/")}`;
 };
 
-function CategoryBreadcrumb({
-  apiItems,
-  selectedPath,
-  loading,
-}: {
-  apiItems: BreadcrumbItem[];
-  selectedPath: CategoryNode[];
-  loading: boolean;
-}) {
-  if (selectedPath.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4 text-sm font-medium text-slate-500 shadow-sm">
-        ابتدا یکی از دسته‌بندی‌های اصلی را انتخاب کنید.
-      </div>
-    );
-  }
+const flattenCategoryTree = (
+  nodes: CategoryNode[],
+  parentPath: CategoryNode[] = []
+): CategorySearchResult[] => {
+  return nodes.flatMap((node) => {
+    const path = [...parentPath, node];
+    return [{ node, path }, ...flattenCategoryTree(node.children ?? [], path)];
+  });
+};
 
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm font-bold text-blue-700">
-        در حال دریافت مسیر دسته‌بندی...
-      </div>
-    );
-  }
-
-  const items =
-    apiItems.length > 0
-      ? apiItems
-      : selectedPath.map((node) => ({
-          id: node.id,
-          name: node.name,
-          type: node.type,
-        }));
-
-  return (
-    <nav
-      aria-label="مسیر دسته‌بندی"
-      className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm"
-    >
-      <ol className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-600">
-        {items.map((item, index) => (
-          <li key={`${item.type}-${item.id}`} className="flex items-center gap-2">
-            <span
-              className={
-                index === items.length - 1 ? "text-blue-700" : "text-slate-500"
-              }
-            >
-              {item.name}
-            </span>
-            {index < items.length - 1 && <span className="text-slate-300">/</span>}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-function CategoryCard({ node, isSelected, onSelect }: CategoryCardProps) {
+function CategoryCard({ node, href }: { node: CategoryNode; href: string }) {
   const childCount = node.children?.length ?? 0;
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(node)}
-      className={`group flex min-h-36 w-full flex-col justify-between rounded-2xl border bg-white p-5 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg ${
-        isSelected ? "border-blue-400 shadow-blue-100" : "border-slate-100"
-      }`}
+    <Link
+      href={href}
+      className="group flex min-h-28 w-full flex-col justify-between rounded-xl border border-slate-100 bg-white p-4 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg"
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-bold ${
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
               typeStyles[node.type]
             }`}
           >
@@ -136,125 +72,46 @@ function CategoryCard({ node, isSelected, onSelect }: CategoryCardProps) {
           </span>
 
           {node.type === "exam_type" && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
               {node.question_count ?? 0} سوال
             </span>
           )}
         </div>
 
-        <h3 className="text-lg font-black leading-8 text-slate-900">
+        <h2 className="text-base font-black leading-7 text-slate-900">
           {node.name}
-        </h3>
+        </h2>
       </div>
 
-      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold">
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] font-bold">
         <span className={childCount > 0 ? "text-slate-500" : "text-slate-400"}>
-          {childCount > 0 ? `${childCount} زیرمجموعه` : "پایان این شاخه"}
+          {childCount > 0 ? `${childCount} درس` : "مشاهده سوالات"}
         </span>
         <span className="text-blue-600 transition-transform group-hover:-translate-x-1">
-          {childCount > 0 ? "مشاهده زیرمجموعه" : "انتخاب"}
+          مشاهده
         </span>
       </div>
-    </button>
-  );
-}
-
-function CategorySection({
-  title,
-  description,
-  nodes,
-  selectedNode,
-  onSelect,
-}: {
-  title: string;
-  description: string;
-  nodes: CategoryNode[];
-  selectedNode?: CategoryNode;
-  onSelect: (node: CategoryNode) => void;
-}) {
-  return (
-    <section className="rounded-[28px] border border-slate-100 bg-white/70 p-5 shadow-sm backdrop-blur md:p-6">
-      <div className="mb-5 space-y-2 border-b border-slate-100 pb-5">
-        <h2 className="text-xl font-black text-slate-900 md:text-2xl">{title}</h2>
-        <p className="text-sm font-medium leading-7 text-slate-500">
-          {description}
-        </p>
-      </div>
-
-      <CategoryChildrenList
-        nodes={nodes}
-        selectedNode={selectedNode}
-        onSelect={onSelect}
-      />
-    </section>
-  );
-}
-
-function CategoryChildrenList({
-  nodes,
-  selectedNode,
-  onSelect,
-}: {
-  nodes: CategoryNode[];
-  selectedNode?: CategoryNode;
-  onSelect: (node: CategoryNode) => void;
-}) {
-  if (nodes.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-100 bg-white px-5 py-8 text-center text-sm font-bold text-slate-500">
-        زیرمجموعه‌ای برای نمایش وجود ندارد.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {nodes.map((node) => (
-        <CategoryCard
-          key={getNodeKey(node)}
-          node={node}
-          isSelected={selectedNode ? getNodeKey(selectedNode) === getNodeKey(node) : false}
-          onSelect={onSelect}
-        />
-      ))}
-    </div>
+    </Link>
   );
 }
 
 export default function CategoryPage() {
   const [categories, setCategories] = useState<CategoryNode[]>([]);
-  const [selectedPath, setSelectedPath] = useState<CategoryNode[]>([]);
-  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [breadcrumbLoading, setBreadcrumbLoading] = useState(false);
   const [error, setError] = useState("");
-  const [breadcrumbError, setBreadcrumbError] = useState("");
 
-  const visibleLevels = useMemo<CategoryLevel[]>(() => {
-    const levels: CategoryLevel[] = [
-      {
-        title: "دسته‌بندی‌های اصلی",
-        description: "ابتدا یکی از شاخه‌های اصلی را انتخاب کنید.",
-        nodes: categories,
-        level: 0,
-      },
-    ];
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-    selectedPath.forEach((node, index) => {
-      if (!node.children || node.children.length === 0) {
-        return;
-      }
+    if (!query) {
+      return [];
+    }
 
-      levels.push({
-        title: `زیرمجموعه‌های ${node.name}`,
-        description: "برای رفتن به سطح بعدی، یکی از گزینه‌های این بخش را انتخاب کنید.",
-        nodes: node.children,
-        level: index + 1,
-      });
-    });
-
-    return levels;
-  }, [categories, selectedPath]);
+    return flattenCategoryTree(categories)
+      .filter(({ node }) => node.name.toLowerCase().includes(query))
+      .slice(0, 12);
+  }, [categories, searchQuery]);
 
   useEffect(() => {
     let isMounted = true;
@@ -286,64 +143,73 @@ export default function CategoryPage() {
     };
   }, []);
 
-  const handleSelectNode = async (node: CategoryNode, level: number) => {
-    const nextPath = [...selectedPath.slice(0, level), node];
-
-    setSelectedPath(nextPath);
-    setBreadcrumb([]);
-    setBreadcrumbError("");
-
-    try {
-      setBreadcrumbLoading(true);
-      const data = await getCategoryBreadcrumb(getBreadcrumbParams(node));
-      setBreadcrumb(data);
-    } catch {
-      setBreadcrumbError("مسیر این دسته‌بندی قابل دریافت نیست.");
-    } finally {
-      setBreadcrumbLoading(false);
-    }
-  };
-
   return (
-    <main className="min-h-screen bg-[#f8fafc] px-4 py-10 text-right md:px-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <header className="space-y-4">
+    <main className="min-h-screen bg-[#f8fafc] px-4 py-8 text-right md:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="space-y-3">
           <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700">
             بانک سؤال دنتست
           </span>
 
-          <div className="space-y-3">
-            <h1 className="text-3xl font-black leading-[1.5] text-slate-950 md:text-5xl">
-              دسته‌بندی سوالات
-            </h1>
-            <p className="max-w-2xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-              هر شاخه را انتخاب کنید تا فرزندهای همان شاخه در بخش بعدی نمایش
-              داده شوند.
-            </p>
-          </div>
+          <h1 className="text-2xl font-black leading-[1.5] text-slate-950 md:text-4xl">
+            دسته‌بندی سوالات
+          </h1>
+ 
         </header>
 
-        <CategoryBreadcrumb
-          apiItems={breadcrumb}
-          selectedPath={selectedPath}
-          loading={breadcrumbLoading}
-        />
+        <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <label
+            htmlFor="category-search"
+            className="mb-2 block text-xs font-bold text-slate-600"
+          >
+            جست‌وجوی عنوان دسته‌بندی و عنوان دروس
+          </label>
+          <input
+            id="category-search"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="مثلا علوم پایه ، وصایا ، تربیت بدنی و..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+          />
 
-        {breadcrumbError && (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm font-bold text-amber-700">
-            {breadcrumbError}
-          </div>
-        )}
+          {searchQuery.trim() && (
+            <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+              {searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {searchResults.map(({ node, path }) => (
+                    <Link
+                      key={path.map(getNodeKey).join(">")}
+                      href={getCategoryHref(path)}
+                      className="rounded-xl border border-slate-100 bg-white px-3 py-3 text-right transition-colors hover:border-blue-200 hover:text-blue-700"
+                    >
+                      <span className="block text-sm font-black text-slate-800">
+                        {node.name}
+                      </span>
+                      <span className="mt-1 block truncate text-[11px] font-bold text-slate-400">
+                        {path.map((item) => item.name).join(" / ")}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-slate-500">
+                  نتیجه‌ای برای این عنوان پیدا نشد.
+                </p>
+              )}
+            </div>
+          )}
+        </section>
 
         {loading && (
-          <div className="rounded-[28px] border border-slate-100 bg-white p-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-sm">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></div>
             <p className="font-bold text-slate-600">در حال دریافت دسته‌بندی‌ها...</p>
           </div>
         )}
 
         {!loading && error && (
-          <div className="rounded-[28px] border border-red-100 bg-red-50 p-8 text-center">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center">
             <h2 className="mb-2 text-lg font-black text-red-700">
               خطا در دریافت اطلاعات
             </h2>
@@ -352,7 +218,7 @@ export default function CategoryPage() {
         )}
 
         {!loading && !error && categories.length === 0 && (
-          <div className="rounded-[28px] border border-slate-100 bg-white p-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-sm">
             <h2 className="mb-2 text-xl font-black text-slate-800">
               هنوز دسته‌بندی‌ای ثبت نشده است
             </h2>
@@ -363,18 +229,26 @@ export default function CategoryPage() {
         )}
 
         {!loading && !error && categories.length > 0 && (
-          <div className="space-y-6">
-            {visibleLevels.map((level) => (
-              <CategorySection
-                key={level.level}
-                title={level.title}
-                description={level.description}
-                nodes={level.nodes}
-                selectedNode={selectedPath[level.level]}
-                onSelect={(node) => handleSelectNode(node, level.level)}
-              />
-            ))}
-          </div>
+          <section className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm backdrop-blur md:p-5">
+            <div className="mb-4 space-y-1.5 border-b border-slate-100 pb-4">
+              <h2 className="text-lg font-black text-slate-900 md:text-xl">
+                دسته‌بندی‌های اصلی
+              </h2>
+              <p className="text-xs font-medium leading-6 text-slate-500">
+               
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {categories.map((category) => (
+                <CategoryCard
+                  key={getNodeKey(category)}
+                  node={category}
+                  href={getCategoryHref([category])}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </main>

@@ -91,16 +91,28 @@ export const getQuestions = async (params?: {
   page_size?: number;
   search?: string;
   exam_type?: number;
+  exam_type_id?: number;
+  year_id?: number;
+  course_id?: number;
+  stage_id?: number;
   question_type?: string;
   difficulty?: string;
   ordering?: string;
 }): Promise<QuestionListResponse> => {
   const token = localStorage.getItem("access");
+  const requestParams = params
+    ? {
+        ...params,
+        exam_type_id: params.exam_type_id ?? params.exam_type,
+        exam_type: undefined,
+      }
+    : undefined;
+
   const response = await api.get("/api/questions/questions/", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    params,
+    params: requestParams,
   });
   return response.data;
 };
