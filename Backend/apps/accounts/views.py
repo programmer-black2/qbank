@@ -12,7 +12,9 @@ from rest_framework.generics import GenericAPIView
 
 from .serializers import (
     LoginSerializer, UserSerializer, UserCreateSerializer,
-    UserUpdateSerializer, ChangePasswordSerializer, ResetPasswordSerializer,LogoutSerializer
+    UserUpdateSerializer, ChangePasswordSerializer, ResetPasswordSerializer,LogoutSerializer,
+    StudentRegisterRequestOTPSerializer, StudentRegisterVerifySerializer,
+    StudentLoginRequestOTPSerializer, StudentLoginVerifySerializer,
 )
 from .models import User
 from ..questions.permissions import IsAdminUser
@@ -37,6 +39,62 @@ class LoginView(TokenObtainPairView):
     """
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
+
+
+class StudentRegisterRequestOTPView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = StudentRegisterRequestOTPSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"message": "کد تایید ثبت نام ارسال شد"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class StudentRegisterVerifyView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = StudentRegisterVerifySerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class StudentLoginRequestOTPView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = StudentLoginRequestOTPSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"message": "کد ورود ارسال شد"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class StudentLoginVerifyView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = StudentLoginVerifySerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(data, status=status.HTTP_200_OK)
 
 
 # class LogoutView(GenericAPIView):
