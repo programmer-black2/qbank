@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/core/', include('apps.core.urls')),
     path('api/questions/', include('apps.questions.urls')),
     path('api/exam/', include('apps.exam.urls')),
+    path('api/subscription/', include('apps.subscription.urls')),
 ]
 
 # سرویس فایل‌های استاتیک و مدیا در حالت توسعه

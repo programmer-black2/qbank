@@ -348,6 +348,39 @@ class QuestionListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class StudentQuestionSerializer(serializers.ModelSerializer):
+    choices = QuestionChoiceSerializer(many=True, read_only=True)
+    answer = QuestionAnswerSerializer(read_only=True)
+    media_items = QuestionMediaSerializer(many=True, read_only=True)
+    answer_media_items = serializers.SerializerMethodField()
+    exam_type_id = serializers.IntegerField(source='exam_type.id', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name_exam_types', read_only=True)
+    year_id = serializers.IntegerField(source='exam_type.year.id', read_only=True)
+    year_number = serializers.IntegerField(source='exam_type.year.years_number', read_only=True)
+    course_id = serializers.IntegerField(source='exam_type.year.course.id', read_only=True)
+    course_name = serializers.CharField(source='exam_type.year.course.name_course', read_only=True)
+    stage_id = serializers.IntegerField(source='exam_type.year.course.stage.id', read_only=True)
+    stage_name = serializers.CharField(source='exam_type.year.course.stage.name_education_stage', read_only=True)
+    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
+    difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
+
+    class Meta:
+        model = Question
+        fields = [
+            'id', 'question_text', 'question_type', 'question_type_display',
+            'difficulty', 'difficulty_display', 'created_at', 'updated_at',
+            'exam_type_id', 'exam_type_name', 'year_id', 'year_number',
+            'course_id', 'course_name', 'stage_id', 'stage_name',
+            'choices', 'answer', 'media_items', 'answer_media_items',
+        ]
+        read_only_fields = fields
+
+    def get_answer_media_items(self, obj):
+        if hasattr(obj, 'answer') and obj.answer:
+            return QuestionMediaSerializer(obj.answer.media_items.all(), many=True).data
+        return []
+
+
 class QuestionDetailSerializer(serializers.ModelSerializer):
     """سریالایزر کامل برای جزئیات سوال (همراه با رسانه‌های سوال و پاسخ)"""
     choices = QuestionChoiceSerializer(many=True, read_only=True)

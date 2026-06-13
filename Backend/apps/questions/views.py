@@ -171,6 +171,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db.models import Count, Prefetch
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
@@ -186,12 +187,13 @@ from .serializers import (
     QuestionListSerializer,
     QuestionDetailSerializer,
     QuestionCreateUpdateSerializer,
+    StudentQuestionSerializer,
     EducationStageSerializer,
     CourseSerializer,
     YearSerializer,
     ExamTypeSerializer,
 )
-from .permissions import IsAdminUser
+from .permissions import HasActiveSubscription, IsAdminUser
 from .filters import QuestionFilter
 from rest_framework.parsers import MultiPartParser, JSONParser
 
@@ -369,6 +371,96 @@ class QuestionViewSet(viewsets.ModelViewSet):
             })
 
         return Response(uploaded_items, status=status.HTTP_201_CREATED)
+
+
+class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
+    serializer_class = StudentQuestionSerializer
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = QuestionFilter
+    search_fields = ['question_text', 'id']
+    ordering_fields = [
+        'created_at',
+        'difficulty',
+        'exam_type__year__years_number',
+        'exam_type__year__course__name_course',
+    ]
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return (
+            Question.objects
+            .select_related(
+                'exam_type',
+                'exam_type__year',
+                'exam_type__year__course',
+                'exam_type__year__course__stage',
+            )
+            .prefetch_related('choices', 'media_items', 'answer__media_items')
+            .all()
+            .order_by('-created_at')
+        )
+
+    @action(detail=False, methods=['get'], url_path='category-tree')
+    def category_tree(self, request):
+        tree = []
+
+        exam_types_queryset = ExamType.objects.annotate(
+            questions_count=Count('questions')
+        ).order_by('name_exam_types')
+        years_queryset = Year.objects.prefetch_related(
+            Prefetch('exam_types', queryset=exam_types_queryset)
+        ).order_by('years_number')
+        courses_queryset = Course.objects.prefetch_related(
+            Prefetch('years', queryset=years_queryset)
+        ).order_by('name_course')
+        stages = (
+            EducationStage.objects
+            .prefetch_related(Prefetch('courses', queryset=courses_queryset))
+            .order_by('id')
+        )
+
+        for stage in stages:
+            stage_node = {
+                'id': stage.id,
+                'name': stage.name_education_stage,
+                'type': 'stage',
+                'children': []
+            }
+
+            for course in stage.courses.all():
+                course_node = {
+                    'id': course.id,
+                    'name': course.name_course,
+                    'type': 'course',
+                    'children': []
+                }
+
+                for year in course.years.all():
+                    year_node = {
+                        'id': year.id,
+                        'name': f"Year {year.years_number}",
+                        'type': 'year',
+                        'children': []
+                    }
+
+                    for exam_type in year.exam_types.all():
+                        year_node['children'].append({
+                            'id': exam_type.id,
+                            'name': exam_type.get_name_exam_types_display(),
+                            'type': 'exam_type',
+                            'question_count': exam_type.questions_count
+                        })
+
+                    course_node['children'].append(year_node)
+
+                stage_node['children'].append(course_node)
+
+            tree.append(stage_node)
+
+        return Response(tree)
+
 
 class CategoryViewSet(viewsets.GenericViewSet):
     """ViewSet برای مدیریت دسته‌بندی‌ها"""
