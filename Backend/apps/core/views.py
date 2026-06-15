@@ -1,6 +1,6 @@
 # apps/core/views.py
 from rest_framework import viewsets, mixins, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Count, Prefetch
@@ -23,6 +23,11 @@ class EducationStageViewSet(mixins.CreateModelMixin,
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = EducationStageSerializer
     queryset = EducationStage.objects.all().order_by('id')
+
+    def get_permissions(self):
+        if self.action == 'list':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -45,6 +50,11 @@ class CourseViewSet(mixins.CreateModelMixin,
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = CourseSerializer
     queryset = Course.objects.all().select_related('stage').order_by('stage_id', 'name_course')
+
+    def get_permissions(self):
+        if self.action == 'list':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -67,6 +77,11 @@ class YearViewSet(mixins.CreateModelMixin,
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = YearSerializer
     queryset = Year.objects.all().select_related('course').order_by('course_id', 'years_number')
+
+    def get_permissions(self):
+        if self.action == 'list':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -89,6 +104,11 @@ class ExamTypeViewSet(mixins.CreateModelMixin,
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = ExamTypeSerializer
     queryset = ExamType.objects.all().select_related('year__course__stage').order_by('year_id', 'name_exam_types')
+
+    def get_permissions(self):
+        if self.action == 'list':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -137,7 +157,7 @@ class CategoryTreeView(APIView):
             }
         ]
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [AllowAny]
     
     def get(self, request):
         tree = []
@@ -238,7 +258,7 @@ class CategoryBreadcrumbView(APIView):
             {"id": 4, "name": "میان‌ترم", "type": "exam_type"}
         ]
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [AllowAny]
     
     def get(self, request):
         exam_type_id = request.query_params.get('exam_type_id')

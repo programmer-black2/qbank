@@ -176,7 +176,7 @@ from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
@@ -464,7 +464,7 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
 
 class CategoryViewSet(viewsets.GenericViewSet):
     """ViewSet برای مدیریت دسته‌بندی‌ها"""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [AllowAny]
 
     @action(detail=False, methods=['get'], url_path='stages')
     def get_stages(self, request):

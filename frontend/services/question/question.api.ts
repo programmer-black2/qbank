@@ -127,6 +127,33 @@ export const getQuestion = async (id: number): Promise<Question> => {
   return response.data;
 };
 
+export const getStudentQuestions = async (params?: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  exam_type?: number;
+  exam_type_id?: number;
+  year_id?: number;
+  course_id?: number;
+  stage_id?: number;
+  question_type?: string;
+  difficulty?: string;
+  ordering?: string;
+}): Promise<QuestionListResponse> => {
+  const requestParams = params
+    ? {
+        ...params,
+        exam_type_id: params.exam_type_id ?? params.exam_type,
+        exam_type: undefined,
+      }
+    : undefined;
+
+  const response = await api.get("/api/questions/student/questions/", {
+    params: requestParams,
+  });
+  return response.data;
+};
+
 export const createQuestion = async (data: Omit<Question, 'id'>): Promise<Question> => {
   const token = localStorage.getItem("access");
   const response = await api.post("/api/questions/questions/", data, {
@@ -201,46 +228,29 @@ export const getQuestionStatistics = async (): Promise<QuestionStatistics> => {
 // ================= CATEGORIES (for dropdowns) =================
 
 export const getStages = async () => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/questions/categories/stages/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/questions/categories/stages/");
   return response.data;
 };
 
 export const getCourses = async (stageId?: number) => {
-  const token = localStorage.getItem("access");
   const params = stageId ? { stage_id: stageId } : undefined;
   const response = await api.get("/api/questions/categories/courses/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     params,
   });
   return response.data;
 };
 
 export const getYears = async (courseId?: number) => {
-  const token = localStorage.getItem("access");
   const params = courseId ? { course_id: courseId } : undefined;
   const response = await api.get("/api/questions/categories/years/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     params,
   });
   return response.data;
 };
 
 export const getExamTypes = async (yearId?: number) => {
-  const token = localStorage.getItem("access");
   const params = yearId ? { year_id: yearId } : undefined;
   const response = await api.get("/api/questions/categories/exam-types/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     params,
   });
   return response.data;

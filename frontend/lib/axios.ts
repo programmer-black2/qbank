@@ -22,12 +22,17 @@ let refreshTokenRequest: Promise<string> | null = null;
 const clearAuthAndRedirect = () => {
   if (typeof window === "undefined") return;
 
+  const currentPath = window.location.pathname;
+  const isAdminPath = currentPath.startsWith("/admin");
+  const loginPath = isAdminPath ? "/admin/login" : "/login";
+
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");
   localStorage.removeItem("user");
 
-  if (!window.location.pathname.includes("/admin/login")) {
-    window.location.href = "/admin/login";
+  if (currentPath !== loginPath) {
+    const next = `${currentPath}${window.location.search}`;
+    window.location.href = `${loginPath}?next=${encodeURIComponent(next)}`;
   }
 };
 

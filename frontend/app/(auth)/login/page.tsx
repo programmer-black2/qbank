@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loginUser } from "../../../services/auth/auth.api";
 
-export default function login() {
+export default function Login() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -41,8 +41,10 @@ export default function login() {
 
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);
+      localStorage.setItem("user", JSON.stringify(response.user));
 
-      router.push("/admin/dashboard");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && !next.startsWith("/admin") ? next : "/category");
 
     } catch (err: any) {
       console.error(err);

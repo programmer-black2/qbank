@@ -38,6 +38,14 @@ export default function AdminLogin() {
 
       console.log("ADMIN LOGIN SUCCESS:", response);
 
+      if (response.user?.role !== "Admin") {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        localStorage.removeItem("user");
+        setError("دسترسی ادمین مورد نیاز است");
+        return;
+      }
+
       // ذخیره توکن‌ها در localStorage
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);

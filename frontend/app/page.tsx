@@ -220,15 +220,17 @@ export default function Home() {
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
 
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-200">
-                  شروع آزمون رایگان
-                </button>
-
                 <a href="/category">
-                  <button className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg transition-all">
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-200 justify-center md:justify-start">
                     مشاهده دروس
                   </button>
                 </a>
+
+                {/* <a href="/category">
+                  <p className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg transition-all">
+                        برای مشاده سوالات لاگین کنید=
+                  </p>
+                </a> */}
 
               </div>
 

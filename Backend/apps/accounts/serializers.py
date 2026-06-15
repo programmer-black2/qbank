@@ -219,9 +219,6 @@ class LoginSerializer(TokenObtainPairSerializer):
         if not user.is_active:
             raise serializers.ValidationError('حساب کاربری غیرفعال است')
         
-        if not (user.role and user.role.name_roles == 'Admin'):
-            raise serializers.ValidationError('دسترسی ادمین مورد نیاز است')
-        
         # تولید توکن‌ها
         refresh = self.get_token(user)
         data = {
