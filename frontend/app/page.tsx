@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 const features = [
   {
@@ -115,8 +116,10 @@ function FeaturesSection() {
         </div>
 
         <div className="mt-20 flex justify-center transition-all duration-1000 transform translate-y-0 opacity-100">
-          <button className="group relative overflow-hidden bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[20px] text-lg font-black transition-all shadow-xl shadow-blue-200 active:scale-95">
-            <a href="/category">
+          <Link
+            href="/category"
+            className="group relative overflow-hidden bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[20px] text-lg font-black transition-all shadow-xl shadow-blue-200 active:scale-95"
+          >
               <span className="relative z-10 flex items-center gap-2">
                 ورود به بانک سوالات هوشمند
 
@@ -134,8 +137,7 @@ function FeaturesSection() {
                   ></path>
                 </svg>
               </span>
-            </a>
-          </button>
+          </Link>
         </div>
       </div>
     </section>
@@ -220,11 +222,11 @@ export default function Home() {
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
 
-                <a href="/category">
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-200 justify-center md:justify-start">
+                <Link href="/category">
+                  <span className="inline-flex bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-200 justify-center md:justify-start">
                     مشاهده دروس
-                  </button>
-                </a>
+                  </span>
+                </Link>
 
                 {/* <a href="/category">
                   <p className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg transition-all">
