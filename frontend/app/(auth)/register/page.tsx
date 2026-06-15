@@ -66,9 +66,9 @@ export default function Login() {
                   </li>
                 </ul>
               </div>
-              <p className="text-slate-400 text-xs z-10">
+              {/* <p className="text-slate-400 text-xs z-10">
                 Smart Question Bank v2.0
-              </p>
+              </p> */}
               <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
             </div>
 
@@ -113,7 +113,7 @@ export default function Login() {
 
                 <div className="space-y-1.5 flex flex-col">
                   <label className="text-xs font-bold text-slate-500 mr-1">
-                    نام مستعار (ID)
+                    نام کاربری
                   </label>
                   <div className="flex items-center bg-slate-50 border-2 rounded-2xl px-4 transition-all duration-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10 border-slate-100 focus-within:border-blue-500">
                     <span className="text-slate-400">

@@ -2,7 +2,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework import filters, status, viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.questions.permissions import IsAdminUser
@@ -24,6 +24,11 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         "is_active",
     ]
     ordering = ["-created_at", "-id"]
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
 
     def get_queryset(self):
         queryset = SubscriptionPlan.objects.annotate(
@@ -73,6 +78,11 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
     ]
     ordering = ["-start_date", "-id"]
 
+    def get_permissions(self):
+        if self.action == "current":
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminUser()]
+
     def get_queryset(self):
         queryset = UserSubscription.objects.select_related(
             "user",
@@ -106,6 +116,27 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
             )
 
         return queryset
+
+    @action(detail=False, methods=["get"], url_path="current")
+    def current(self, request):
+        now = timezone.now()
+        subscription = (
+            UserSubscription.objects
+            .select_related("user", "subscription_plan")
+            .filter(
+                user=request.user,
+                is_active=True,
+                end_date__gt=now,
+            )
+            .order_by("-end_date", "-id")
+            .first()
+        )
+
+        if not subscription:
+            return Response(None)
+
+        serializer = self.get_serializer(subscription)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="expired")
     def expired(self, request):
