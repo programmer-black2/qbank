@@ -4,12 +4,26 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Count, Prefetch
+from apps.accounts.models import User
 from apps.core.models import EducationStage, Course, Year, ExamType
+from apps.exam.models import Exam
+from apps.questions.models import Question
 from .serializers import (
     EducationStageSerializer, CourseSerializer,
     YearSerializer, ExamTypeSerializer, CategoryNodeSerializer
 )
 from apps.questions.permissions import IsAdminUser
+
+
+class PublicSiteStatsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({
+            "active_users": User.objects.filter(is_active=True).count(),
+            "held_exams": Exam.objects.count(),
+            "total_questions": Question.objects.count(),
+        })
 
 
 class EducationStageViewSet(mixins.CreateModelMixin,
