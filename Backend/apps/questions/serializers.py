@@ -239,6 +239,7 @@
 
 
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from apps.questions.models import Question, QuestionChoice, QuestionAnswer, QuestionMedia
 from apps.core.models import EducationStage, Course, Year, ExamType
 from apps.accounts.models import User
@@ -327,6 +328,13 @@ class QuestionMediaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class StudentAnswerMediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionMedia
+        fields = ['media_type', 'file_url', 'original_file_name', 'alt_text']
+        read_only_fields = fields
+
+
 class QuestionListSerializer(serializers.ModelSerializer):
     """سریالایزر ساده برای لیست سوالات"""
     exam_type_name = serializers.CharField(source='exam_type.name_exam_types', read_only=True)
@@ -350,9 +358,7 @@ class QuestionListSerializer(serializers.ModelSerializer):
 
 class StudentQuestionSerializer(serializers.ModelSerializer):
     choices = QuestionChoiceSerializer(many=True, read_only=True)
-    answer = QuestionAnswerSerializer(read_only=True)
     media_items = QuestionMediaSerializer(many=True, read_only=True)
-    answer_media_items = serializers.SerializerMethodField()
     exam_type_id = serializers.IntegerField(source='exam_type.id', read_only=True)
     exam_type_name = serializers.CharField(source='exam_type.name_exam_types', read_only=True)
     year_id = serializers.IntegerField(source='exam_type.year.id', read_only=True)
@@ -371,13 +377,35 @@ class StudentQuestionSerializer(serializers.ModelSerializer):
             'difficulty', 'difficulty_display', 'created_at', 'updated_at',
             'exam_type_id', 'exam_type_name', 'year_id', 'year_number',
             'course_id', 'course_name', 'stage_id', 'stage_name',
-            'choices', 'answer', 'media_items', 'answer_media_items',
+            'choices', 'media_items',
         ]
         read_only_fields = fields
 
+
+class StudentQuestionAnswerSerializer(serializers.ModelSerializer):
+    question_id = serializers.IntegerField(source='id', read_only=True)
+    descriptive_answer_text = serializers.SerializerMethodField()
+    answer_media_items = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = [
+            'question_id',
+            'question_type',
+            'descriptive_answer_text',
+            'answer_media_items',
+        ]
+        read_only_fields = fields
+
+    def get_descriptive_answer_text(self, obj):
+        if hasattr(obj, 'answer') and obj.answer:
+            return obj.answer.descriptive_answer_text
+        return None
+
+    @extend_schema_field(StudentAnswerMediaSerializer(many=True))
     def get_answer_media_items(self, obj):
         if hasattr(obj, 'answer') and obj.answer:
-            return QuestionMediaSerializer(obj.answer.media_items.all(), many=True).data
+            return StudentAnswerMediaSerializer(obj.answer.media_items.all(), many=True).data
         return []
 
 
@@ -399,6 +427,7 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(QuestionMediaSerializer(many=True))
     def get_answer_media_items(self, obj):
         """دریافت رسانه‌های متصل به پاسخ تشریحی (در صورت وجود پاسخ)"""
         if hasattr(obj, 'answer') and obj.answer:

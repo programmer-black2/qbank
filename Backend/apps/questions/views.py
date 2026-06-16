@@ -180,6 +180,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 
 from apps.questions.models import Question
 from apps.core.models import EducationStage, Course, Year, ExamType
@@ -188,6 +189,7 @@ from .serializers import (
     QuestionDetailSerializer,
     QuestionCreateUpdateSerializer,
     StudentQuestionSerializer,
+    StudentQuestionAnswerSerializer,
     EducationStageSerializer,
     CourseSerializer,
     YearSerializer,
@@ -401,6 +403,16 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             .all()
             .order_by('-created_at')
         )
+
+    @extend_schema(
+        responses={200: StudentQuestionAnswerSerializer},
+        description='Return the answer sheet for one student question.',
+    )
+    @action(detail=True, methods=['get'], url_path='answer')
+    def answer(self, request, pk=None):
+        question = self.get_object()
+        serializer = StudentQuestionAnswerSerializer(question)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='category-tree')
     def category_tree(self, request):

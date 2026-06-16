@@ -3,8 +3,8 @@ from apps.questions.models import Question
 
 
 class QuestionFilter(django_filters.FilterSet):
-    question_type = django_filters.ChoiceFilter(choices=Question.QuestionType.choices)
-    difficulty = django_filters.ChoiceFilter(choices=Question.Difficulty.choices)
+    question_type = django_filters.CharFilter(method='filter_question_type')
+    difficulty = django_filters.CharFilter(method='filter_difficulty')
     exam_type_id = django_filters.NumberFilter(field_name='exam_type_id')
     year_id = django_filters.NumberFilter(field_name='exam_type__year_id')
     course_id = django_filters.NumberFilter(field_name='exam_type__year__course_id')
@@ -19,3 +19,23 @@ class QuestionFilter(django_filters.FilterSet):
             'question_type', 'difficulty', 'exam_type_id', 
             'year_id', 'course_id', 'stage_id'
         ]
+
+    def filter_question_type(self, queryset, name, value):
+        if not value or value == 'all':
+            return queryset
+
+        valid_values = {choice[0] for choice in Question.QuestionType.choices}
+        if value not in valid_values:
+            return queryset.none()
+
+        return queryset.filter(question_type=value)
+
+    def filter_difficulty(self, queryset, name, value):
+        if not value or value == 'all':
+            return queryset
+
+        valid_values = {choice[0] for choice in Question.Difficulty.choices}
+        if value not in valid_values:
+            return queryset.none()
+
+        return queryset.filter(difficulty=value)
