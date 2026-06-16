@@ -55,6 +55,26 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
         return value
 
 
+class StudentSubscriptionPlanSerializer(serializers.ModelSerializer):
+    final_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            "id",
+            "title",
+            "duration_days",
+            "price",
+            "discount_percent",
+            "final_price",
+        ]
+        read_only_fields = fields
+
+    def get_final_price(self, obj):
+        discount_multiplier = (Decimal("100") - obj.discount_percent) / Decimal("100")
+        return (obj.price * discount_multiplier).quantize(Decimal("0.01"))
+
+
 class UserSubscriptionSerializer(serializers.ModelSerializer):
     user_id = serializers.PrimaryKeyRelatedField(
         source="user",
@@ -180,3 +200,39 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
             user=subscription.user,
             is_active=True,
         ).exclude(id=subscription.id).update(is_active=False)
+
+
+class StudentCurrentSubscriptionSerializer(serializers.ModelSerializer):
+    plan = StudentSubscriptionPlanSerializer(source="subscription_plan", read_only=True)
+    remaining_days = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserSubscription
+        fields = [
+            "id",
+            "plan",
+            "start_date",
+            "end_date",
+            "remaining_days",
+            "status",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+    def get_remaining_days(self, obj):
+        if not obj.is_active:
+            return 0
+
+        delta = obj.end_date - timezone.now()
+        if delta.total_seconds() <= 0:
+            return 0
+
+        return delta.days + (1 if delta.seconds else 0)
+
+    def get_status(self, obj):
+        if not obj.is_active:
+            return "inactive"
+        if obj.end_date <= timezone.now():
+            return "expired"
+        return "active"

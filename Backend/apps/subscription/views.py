@@ -8,7 +8,12 @@ from rest_framework.response import Response
 from apps.questions.permissions import IsAdminUser
 
 from .models import SubscriptionPlan, UserSubscription
-from .serializers import SubscriptionPlanSerializer, UserSubscriptionSerializer
+from .serializers import (
+    StudentCurrentSubscriptionSerializer,
+    StudentSubscriptionPlanSerializer,
+    SubscriptionPlanSerializer,
+    UserSubscriptionSerializer,
+)
 
 
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
@@ -195,4 +200,123 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
             ).count(),
             "expired": UserSubscription.objects.filter(end_date__lte=now).count(),
             "inactive": UserSubscription.objects.filter(is_active=False).count(),
+        })
+
+
+class StudentSubscriptionViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_current_subscription(self):
+        return (
+            UserSubscription.objects
+            .select_related("subscription_plan")
+            .filter(
+                user=self.request.user,
+                is_active=True,
+                end_date__gt=timezone.now(),
+            )
+            .order_by("-end_date", "-id")
+            .first()
+        )
+
+    def get_latest_subscription(self):
+        return (
+            UserSubscription.objects
+            .select_related("subscription_plan")
+            .filter(user=self.request.user)
+            .order_by("-end_date", "-id")
+            .first()
+        )
+
+    @action(detail=False, methods=["get"], url_path="plans")
+    def plans(self, request):
+        queryset = SubscriptionPlan.objects.filter(is_active=True).order_by(
+            "price",
+            "duration_days",
+            "id",
+        )
+        serializer = StudentSubscriptionPlanSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="current")
+    def current(self, request):
+        subscription = self.get_current_subscription()
+
+        if not subscription:
+            latest_subscription = self.get_latest_subscription()
+            return Response({
+                "has_active_subscription": False,
+                "subscription": None,
+                "latest_subscription": (
+                    StudentCurrentSubscriptionSerializer(latest_subscription).data
+                    if latest_subscription
+                    else None
+                ),
+            })
+
+        serializer = StudentCurrentSubscriptionSerializer(subscription)
+        return Response({
+            "has_active_subscription": True,
+            "subscription": serializer.data,
+            "latest_subscription": serializer.data,
+        })
+
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request):
+        queryset = (
+            UserSubscription.objects
+            .select_related("subscription_plan")
+            .filter(user=request.user)
+            .order_by("-start_date", "-id")
+        )
+
+        status_value = request.query_params.get("status")
+        if status_value == "active":
+            queryset = queryset.filter(is_active=True, end_date__gt=timezone.now())
+        elif status_value == "expired":
+            queryset = queryset.filter(end_date__lte=timezone.now())
+        elif status_value == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = StudentCurrentSubscriptionSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = StudentCurrentSubscriptionSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="dashboard")
+    def dashboard(self, request):
+        plans = SubscriptionPlan.objects.filter(is_active=True).order_by(
+            "price",
+            "duration_days",
+            "id",
+        )
+        subscription = self.get_current_subscription()
+        latest_subscription = subscription or self.get_latest_subscription()
+        history = (
+            UserSubscription.objects
+            .select_related("subscription_plan")
+            .filter(user=request.user)
+            .order_by("-start_date", "-id")[:5]
+        )
+
+        return Response({
+            "plans": StudentSubscriptionPlanSerializer(plans, many=True).data,
+            "current_subscription": (
+                StudentCurrentSubscriptionSerializer(subscription).data
+                if subscription
+                else None
+            ),
+            "latest_subscription": (
+                StudentCurrentSubscriptionSerializer(latest_subscription).data
+                if latest_subscription
+                else None
+            ),
+            "recent_history": StudentCurrentSubscriptionSerializer(
+                history,
+                many=True,
+            ).data,
+            "has_active_subscription": subscription is not None,
         })

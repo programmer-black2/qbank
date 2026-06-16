@@ -1,7 +1,11 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import SubscriptionPlanViewSet, UserSubscriptionViewSet
+from .views import (
+    StudentSubscriptionViewSet,
+    SubscriptionPlanViewSet,
+    UserSubscriptionViewSet,
+)
 
 
 router = DefaultRouter()
@@ -10,6 +14,11 @@ router.register(
     "user-subscriptions",
     UserSubscriptionViewSet,
     basename="user-subscription",
+)
+router.register(
+    "student",
+    StudentSubscriptionViewSet,
+    basename="student-subscription",
 )
 
 urlpatterns = [

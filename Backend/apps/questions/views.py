@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db.models import Count, Prefetch
 from django.utils.text import get_valid_filename
-from rest_framework import status, viewsets, filters
+from rest_framework import status, viewsets, filters, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,7 +12,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 
-from apps.questions.models import Question
+from apps.questions.models import Question, QuestionReport
 from apps.core.models import EducationStage, Course, Year, ExamType
 from .serializers import (
     QuestionListSerializer,
@@ -20,6 +20,9 @@ from .serializers import (
     QuestionCreateUpdateSerializer,
     StudentQuestionSerializer,
     StudentQuestionAnswerSerializer,
+    StudentQuestionReportSerializer,
+    AdminQuestionReportSerializer,
+    AdminQuestionReportStatusSerializer,
     EducationStageSerializer,
     CourseSerializer,
     YearSerializer,
@@ -244,6 +247,23 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = StudentQuestionAnswerSerializer(question)
         return Response(serializer.data)
 
+    @extend_schema(
+        request=StudentQuestionReportSerializer,
+        responses={201: StudentQuestionReportSerializer},
+        description='Create a pending report for one student question.',
+    )
+    @action(detail=True, methods=['post'], url_path='report')
+    def report(self, request, pk=None):
+        question = self.get_object()
+        serializer = StudentQuestionReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            user=request.user,
+            question=question,
+            status=QuestionReport.Status.PENDING,
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['get'], url_path='category-tree')
     def category_tree(self, request):
         tree = []
@@ -302,6 +322,64 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             tree.append(stage_node)
 
         return Response(tree)
+
+
+class QuestionReportViewSet(mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin,
+                            mixins.UpdateModelMixin,
+                            viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'message',
+        'user__full_name',
+        'user__phone',
+        'question__question_text',
+    ]
+    ordering_fields = ['created_at', 'updated_at', 'status']
+    ordering = ['-created_at', '-id']
+
+    def get_queryset(self):
+        queryset = QuestionReport.objects.select_related(
+            'user',
+            'question',
+        ).order_by('-created_at', '-id')
+
+        status_value = self.request.query_params.get('status')
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        question_id = self.request.query_params.get('question_id')
+        if question_id:
+            queryset = queryset.filter(question_id=question_id)
+
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return AdminQuestionReportStatusSerializer
+        return AdminQuestionReportSerializer
+
+    @extend_schema(
+        request=AdminQuestionReportStatusSerializer,
+        responses={200: AdminQuestionReportSerializer},
+        description='Update report status to pending or resolved.',
+    )
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = AdminQuestionReportStatusSerializer(
+            instance,
+            data=request.data,
+            partial=partial,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(AdminQuestionReportSerializer(instance).data)
 
 
 class CategoryViewSet(viewsets.GenericViewSet):

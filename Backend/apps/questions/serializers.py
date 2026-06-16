@@ -1,7 +1,13 @@
 
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
-from apps.questions.models import Question, QuestionChoice, QuestionAnswer, QuestionMedia
+from apps.questions.models import (
+    Question,
+    QuestionAnswer,
+    QuestionChoice,
+    QuestionMedia,
+    QuestionReport,
+)
 from apps.core.models import EducationStage, Course, Year, ExamType
 from apps.accounts.models import User
 
@@ -168,6 +174,65 @@ class StudentQuestionAnswerSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'answer') and obj.answer:
             return StudentAnswerMediaSerializer(obj.answer.media_items.all(), many=True).data
         return []
+
+
+class StudentQuestionReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionReport
+        fields = ['id', 'message', 'status', 'created_at']
+        read_only_fields = ['id', 'status', 'created_at']
+
+    def validate_message(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('Report message is required.')
+        return value
+
+
+class AdminQuestionReportSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_name = serializers.CharField(source='user.full_name', read_only=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True)
+    question_id = serializers.IntegerField(source='question.id', read_only=True)
+    question_text = serializers.CharField(source='question.question_text', read_only=True)
+    question_type = serializers.CharField(source='question.question_type', read_only=True)
+    difficulty = serializers.CharField(source='question.difficulty', read_only=True)
+
+    class Meta:
+        model = QuestionReport
+        fields = [
+            'id',
+            'user_id',
+            'user_name',
+            'user_phone',
+            'question_id',
+            'question_text',
+            'question_type',
+            'difficulty',
+            'message',
+            'status',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'user_id',
+            'user_name',
+            'user_phone',
+            'question_id',
+            'question_text',
+            'question_type',
+            'difficulty',
+            'message',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class AdminQuestionReportStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionReport
+        fields = ['status']
 
 
 class QuestionDetailSerializer(serializers.ModelSerializer):
