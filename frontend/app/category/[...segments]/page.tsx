@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CategoryNode, getCategoryTree } from "@/services/core/core.api";
 import {
-  getQuestions,
+  getStudentQuestions,
   Question,
   QuestionListResponse,
 } from "@/services/question/question.api";
@@ -210,6 +210,7 @@ function QuestionCard({ question }: { question: Question }) {
 
 export default function CategoryRoutePage() {
   const params = useParams<{ segments: string[] }>();
+  const router = useRouter();
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,10 +266,16 @@ export default function CategoryRoutePage() {
         return;
       }
 
+      if (!localStorage.getItem("access")) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        router.push(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
       try {
         setQuestionsLoading(true);
         setQuestionsError("");
-        const response = await getQuestions({
+        const response = await getStudentQuestions({
           exam_type_id: currentNode.id,
           page_size: 50,
         });
@@ -292,7 +299,7 @@ export default function CategoryRoutePage() {
     return () => {
       isMounted = false;
     };
-  }, [currentNode, shouldLoadQuestions]);
+  }, [currentNode, router, shouldLoadQuestions]);
 
   return (
     <main className="min-h-screen bg-[#f8fafc] px-4 py-8 text-right md:px-8">

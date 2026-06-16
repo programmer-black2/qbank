@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loginUser } from "../../../services/auth/auth.api";
 
-export default function login() {
+export default function Login() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -41,10 +41,12 @@ export default function login() {
 
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);
+      localStorage.setItem("user", JSON.stringify(response.user));
 
-      router.push("/admin/dashboard");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && !next.startsWith("/admin") ? next : "/category");
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
 
       setError("نام کاربری یا رمز عبور اشتباه است");
@@ -99,9 +101,15 @@ export default function login() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                    {error}
+                  </div>
+                )}
+
                 {/* فیلد نام کاربری */}
                 <div className="space-y-2 flex flex-col">
-                  <label className="text-xs font-bold text-slate-500 mr-1">نام کاربری</label>
+                  <label className="text-xs font-bold text-slate-500 mr-1">شماره موبایل</label>
                   <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 transition-all focus-within:border-blue-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/5">
                     <svg className="w-5 h-5 text-slate-400" focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 5.9c1.16 0 2.1.94 2.1 2.1s-.94 2.1-2.1 2.1S9.9 9.16 9.9 8s.94-2.1 2.1-2.1m0 9c2.97 0 6.1 1.46 6.1 2.1v1.1H5.9V17c0-.64 3.13-2.1 6.1-2.1M12 4C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4m0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4" />

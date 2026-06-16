@@ -38,6 +38,14 @@ export default function AdminLogin() {
 
       console.log("ADMIN LOGIN SUCCESS:", response);
 
+      if (response.user?.role !== "Admin") {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        localStorage.removeItem("user");
+        setError("دسترسی ادمین مورد نیاز است");
+        return;
+      }
+
       // ذخیره توکن‌ها در localStorage
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);
@@ -46,13 +54,22 @@ export default function AdminLogin() {
       // انتقال به داشبورد ادمین
       router.push("/admin/dashboard");
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Login error:", err);
 
-      if (err.response?.data?.non_field_errors) {
-        setError(err.response.data.non_field_errors[0]);
-      } else if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
+      const responseError = err as {
+        response?: {
+          data?: {
+            non_field_errors?: string[];
+            detail?: string;
+          };
+        };
+      };
+
+      if (responseError.response?.data?.non_field_errors) {
+        setError(responseError.response.data.non_field_errors[0]);
+      } else if (responseError.response?.data?.detail) {
+        setError(responseError.response.data.detail);
       } else {
         setError("خطا در ورود. لطفاً دوباره تلاش کنید.");
       }

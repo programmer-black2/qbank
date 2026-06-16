@@ -60,12 +60,7 @@ export interface BreadcrumbItem {
 // ================= EDUCATION STAGES =================
 
 export const getEducationStages = async (): Promise<EducationStage[]> => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/core/education-stages/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/core/education-stages/");
   return response.data;
 };
 
@@ -101,12 +96,7 @@ export const deleteEducationStage = async (id: number): Promise<void> => {
 // ================= COURSES =================
 
 export const getCourses = async (): Promise<Course[]> => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/core/courses/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/core/courses/");
   return response.data;
 };
 
@@ -142,12 +132,7 @@ export const deleteCourse = async (id: number): Promise<void> => {
 // ================= YEARS =================
 
 export const getYears = async (): Promise<Year[]> => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/core/years/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/core/years/");
   return response.data;
 };
 
@@ -183,12 +168,7 @@ export const deleteYear = async (id: number): Promise<void> => {
 // ================= EXAM TYPES =================
 
 export const getExamTypes = async (): Promise<ExamType[]> => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/core/exam-types/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/core/exam-types/");
   return response.data;
 };
 
@@ -224,12 +204,7 @@ export const deleteExamType = async (id: number): Promise<void> => {
 // ================= CATEGORY TREE =================
 
 export const getCategoryTree = async (): Promise<CategoryNode[]> => {
-  const token = localStorage.getItem("access");
-  const response = await api.get("/api/core/category-tree/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await api.get("/api/core/category-tree/");
   return response.data;
 };
 
@@ -239,11 +214,7 @@ export const getCategoryBreadcrumb = async (params: {
   course_id?: number;
   stage_id?: number;
 }): Promise<BreadcrumbItem[]> => {
-  const token = localStorage.getItem("access");
   const response = await api.get("/api/core/category-breadcrumb/", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     params,
   });
   return response.data;

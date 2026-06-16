@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Question } from '@/services/question/question.api';
 
 interface Props {
@@ -12,8 +11,6 @@ interface Props {
 }
 
 export default function QuestionTable({ questions, loading, onEdit, onDelete, onView }: Props) {
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case 'mcq': return 'چند گزینه‌ای';
@@ -245,16 +242,16 @@ export default function QuestionTable({ questions, loading, onEdit, onDelete, on
 
 // Keep backward compatibility
 interface OldProps {
-  rows: any[];
+  rows: Question[];
   onDelete: (id: number) => void;
 }
 
 export function QuestionTableOld({ rows, onDelete }: OldProps) {
-  const handleEdit = (question: any) => {
+  const handleEdit = () => {
     console.log('Edit not implemented in old version');
   };
 
-  const handleView = (question: any) => {
+  const handleView = () => {
     console.log('View not implemented in old version');
   };
 

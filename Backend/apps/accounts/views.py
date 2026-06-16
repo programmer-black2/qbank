@@ -97,38 +97,6 @@ class StudentLoginVerifyView(GenericAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-# class LogoutView(GenericAPIView):
-#     """
-#     خروج از سیستم و غیرفعال کردن توکن
-    
-#     POST /api/auth/logout/
-#     {
-#         "refresh_token": "your_refresh_token"
-#     }
-#     """
-#     permission_classes = [IsAuthenticated]
-    
-#     def post(self, request):
-#         try:
-#             refresh_token = request.data.get('refresh')
-#             if not refresh_token:
-#                 return Response(
-#                     {'error': 'refresh_token is required'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-            
-#             token = RefreshToken(refresh_token)
-#             token.blacklist()
-            
-#             return Response(
-#                 {'message': 'با موفقیت خارج شدید'},
-#                 status=status.HTTP_200_OK
-#             )
-#         except Exception as e:
-#             return Response(
-#                 {'error': str(e)},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
 
 
 class LogoutView(GenericAPIView):
@@ -167,18 +135,6 @@ class LogoutView(GenericAPIView):
 
 
 
-# class MeView(APIView):
-#     """
-#     دریافت اطلاعات کاربر جاری
-    
-#     GET /api/auth/me/
-#     """
-#     permission_classes = [IsAuthenticated]
-    
-#     def get(self, request):
-#         serializer = UserSerializer(request.user)
-#         return Response(serializer.data)
-
 class MeView(GenericAPIView):
     """
     دریافت اطلاعات کاربر جاری
@@ -194,36 +150,6 @@ class MeView(GenericAPIView):
 
 
 
-# class ChangePasswordView(APIView):
-#     """
-#     تغییر رمز عبور کاربر جاری
-    
-#     POST /api/auth/change-password/
-#     {
-#         "old_password": "current_password",
-#         "new_password": "new_password",
-#         "confirm_password": "new_password"
-#     }
-#     """
-#     permission_classes = [IsAuthenticated]
-    
-#     def post(self, request):
-#         serializer = ChangePasswordSerializer(
-#             data=request.data,
-#             context={'request': request}
-#         )
-        
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(
-#                 {'message': 'رمز عبور با موفقیت تغییر کرد'},
-#                 status=status.HTTP_200_OK
-#             )
-        
-#         return Response(
-#             serializer.errors,
-#             status=status.HTTP_400_BAD_REQUEST
-#         )
 
 
 class ChangePasswordView(GenericAPIView):

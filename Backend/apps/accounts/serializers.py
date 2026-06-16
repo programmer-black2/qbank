@@ -17,66 +17,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
-
-# class LoginSerializer(TokenObtainPairSerializer):
-#     """
-#     سریالایزر ورود با پشتیبانی از شماره موبایل (primary) و ایمیل (secondary)
-#     """
-    
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # تغییر نام فیلد برای وضوح بیشتر
-#         self.fields['phone_or_email'] = self.fields.pop('username')
-#         self.fields['phone_or_email'].label = 'Phone Number or Email'
-    
-#     def validate(self, attrs):
-#         # دریافت شناسه (شماره موبایل یا ایمیل)
-#         phone_or_email = attrs.get('phone_or_email', '')
-#         password = attrs.get('password', '')
-        
-#         # تعیین نوع ورودی
-#         if '@' in phone_or_email:
-#             # ورود با ایمیل
-#             authenticate_kwargs = {'email': phone_or_email, 'password': password}
-#         else:
-#             # ورود با شماره موبایل
-#             authenticate_kwargs = {'phone': phone_or_email, 'password': password}
-        
-#         # احراز هویت کاربر
-#         user = authenticate(
-#             request=self.context.get('request'),
-#             **authenticate_kwargs
-#         )
-        
-#         if not user:
-#             raise serializers.ValidationError('شماره موبایل/ایمیل یا رمز عبور اشتباه است')
-        
-#         if not user.is_active:
-#             raise serializers.ValidationError('حساب کاربری غیرفعال است')
-        
-#         # بررسی دسترسی ادمین برای فاز اول
-#         if not (user.role and user.role.name_roles == 'Admin'):
-#             raise serializers.ValidationError('دسترسی ادمین مورد نیاز است')
-        
-#         # ذخیره کاربر در context
-#         self.user = user
-        
-#         # تولید توکن‌ها
-#         data = super().validate(attrs)
-        
-#         # اضافه کردن اطلاعات کاربر به پاسخ
-#         data['user'] = {
-#             'id': user.id,
-#             'full_name': user.full_name,
-#             'phone': user.phone,
-#             'email': user.email,
-#             'role': user.role.name_roles if user.role else None,
-#             'is_active': user.is_active,
-#         }
-        
-#         return data
-
-
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
@@ -218,9 +158,6 @@ class LoginSerializer(TokenObtainPairSerializer):
         
         if not user.is_active:
             raise serializers.ValidationError('حساب کاربری غیرفعال است')
-        
-        if not (user.role and user.role.name_roles == 'Admin'):
-            raise serializers.ValidationError('دسترسی ادمین مورد نیاز است')
         
         # تولید توکن‌ها
         refresh = self.get_token(user)
