@@ -14,6 +14,18 @@ class IsAdminUser(BasePermission):
         )
 
 
+class IsWriterUser(BasePermission):
+    """Only users with the Writer role can access the writer dashboard APIs."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.role
+            and request.user.role.name_roles == Role.NameChoices.WRITER
+        )
+
+
 class HasActiveSubscription(BasePermission):
     message = "Active subscription is required to view questions."
 

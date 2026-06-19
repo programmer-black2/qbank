@@ -24,7 +24,8 @@ const clearAuthAndRedirect = () => {
 
   const currentPath = window.location.pathname;
   const isAdminPath = currentPath.startsWith("/admin");
-  const loginPath = isAdminPath ? "/admin/login" : "/login";
+  const isAuthorPath = currentPath.startsWith("/author");
+  const loginPath = isAdminPath ? "/admin/login" : isAuthorPath ? "/author/login" : "/login";
 
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");

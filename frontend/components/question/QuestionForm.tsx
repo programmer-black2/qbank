@@ -9,6 +9,7 @@ interface Props {
   question?: Question;
   onSubmit: (data: Question) => void | Promise<void>;
   onCancel: () => void;
+  uploadMedia?: (files: File[]) => Promise<QuestionMedia[]>;
 }
 
 interface CategoryStage {
@@ -84,7 +85,12 @@ const getErrorMessage = (error: unknown) => {
   return 'خطا در ثبت سوال';
 };
 
-export default function QuestionForm({ question, onSubmit, onCancel }: Props) {
+export default function QuestionForm({
+  question,
+  onSubmit,
+  onCancel,
+  uploadMedia = questionService.uploadQuestionMedia,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [uploadingMediaKey, setUploadingMediaKey] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -337,7 +343,7 @@ export default function QuestionForm({ question, onSubmit, onCancel }: Props) {
       setUploadingMediaKey(mediaKey);
       setError('');
 
-      const [uploadedMedia] = await questionService.uploadQuestionMedia([file]);
+      const [uploadedMedia] = await uploadMedia([file]);
 
       setValue(`${fieldName}.${index}.media_type`, uploadedMedia?.media_type || inferMediaType(file));
       setValue(`${fieldName}.${index}.file_url`, uploadedMedia?.file_url || '');

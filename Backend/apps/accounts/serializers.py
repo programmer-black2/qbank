@@ -401,6 +401,74 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
+class WriterCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'phone', 'password', 'is_active']
+        read_only_fields = ['id']
+
+    def validate_phone(self, value):
+        phone = validate_iran_mobile(value)
+        if User.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError('این شماره موبایل قبلا ثبت شده است')
+        return phone
+
+    def validate_full_name(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('نام نویسنده الزامی است')
+        return value
+
+    def create(self, validated_data):
+        writer_role = Role.objects.filter(name_roles=Role.NameChoices.WRITER).first()
+        if not writer_role:
+            raise serializers.ValidationError('نقش Writer در دیتابیس تعریف نشده است')
+
+        password = validated_data.pop('password')
+        user = User.objects.create_user(
+            role=writer_role,
+            email=None,
+            password=password,
+            **validated_data,
+        )
+        return user
+
+
+class WriterUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8, required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'phone', 'password', 'is_active']
+        read_only_fields = ['id']
+
+    def validate_phone(self, value):
+        phone = validate_iran_mobile(value)
+        if User.objects.filter(phone=phone).exclude(id=self.instance.id).exists():
+            raise serializers.ValidationError('این شماره موبایل قبلا ثبت شده است')
+        return phone
+
+    def validate_full_name(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('نام نویسنده الزامی است')
+        return value
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """
     سریالایزر برای تغییر رمز عبور

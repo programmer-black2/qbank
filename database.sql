@@ -9,6 +9,11 @@ CREATE TABLE `roles` (
   UNIQUE KEY `name_roles` (`name_roles`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+INSERT IGNORE INTO `roles` (`id`, `name_roles`) VALUES
+  (1, 'Admin'),
+  (2, 'Writer'),
+  (3, 'Student');
+
 -- test 
 CREATE TABLE `subscription_plans` (
   `id` smallint unsigned NOT NULL AUTO_INCREMENT,
@@ -246,6 +251,11 @@ CREATE TABLE question_workflow_statuses (
     CONSTRAINT uq_question_workflow_statuses_name UNIQUE (name),
     CONSTRAINT uq_question_workflow_statuses_code UNIQUE (code)
 );
+
+INSERT IGNORE INTO question_workflow_statuses (name, code, description) VALUES
+  ('در انتظار تایید', 'pending', 'سوال ثبت شده و منتظر بررسی ادمین است.'),
+  ('تایید شده', 'approved', 'سوال توسط ادمین تایید شده و قابل انتشار است.'),
+  ('رد شده', 'rejected', 'سوال توسط ادمین رد شده است.');
 
 
 

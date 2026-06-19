@@ -5,12 +5,14 @@ from .views import (
     LoginView, LogoutView, MeView, ChangePasswordView, UserViewSet,
     StudentRegisterRequestOTPView, StudentRegisterVerifyView,
     StudentLoginRequestOTPView, StudentLoginVerifyView,
+    WriterViewSet,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
 router = DefaultRouter()
 router.register('users', UserViewSet, basename='user')
+router.register('writers', WriterViewSet, basename='writer')
 
 urlpatterns = [
     # مسیرهای احراز هویت

@@ -8,9 +8,19 @@ interface Props {
   onEdit: (question: Question) => void;
   onDelete: (id: number) => void;
   onView: (question: Question) => void;
+  onApprove?: (id: number) => void;
+  onReject?: (id: number) => void;
 }
 
-export default function QuestionTable({ questions, loading, onEdit, onDelete, onView }: Props) {
+export default function QuestionTable({
+  questions,
+  loading,
+  onEdit,
+  onDelete,
+  onView,
+  onApprove,
+  onReject,
+}: Props) {
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case 'mcq': return 'چند گزینه‌ای';
@@ -35,6 +45,26 @@ export default function QuestionTable({ questions, loading, onEdit, onDelete, on
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'hard': return 'bg-red-100 text-red-800';
       case 'unknown': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getWorkflowStatusLabel = (question: Question) => {
+    if (question.workflow_status_name) return question.workflow_status_name;
+
+    switch (question.workflow_status_code) {
+      case 'pending': return 'در انتظار تایید';
+      case 'approved': return 'تایید شده';
+      case 'rejected': return 'رد شده';
+      default: return 'بدون وضعیت';
+    }
+  };
+
+  const getWorkflowStatusColor = (status?: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -107,6 +137,9 @@ export default function QuestionTable({ questions, loading, onEdit, onDelete, on
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 ایجاد شده
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                وضعیت انتشار
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 عملیات
@@ -189,9 +222,41 @@ export default function QuestionTable({ questions, loading, onEdit, onDelete, on
                   </div>
                 </td>
 
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    getWorkflowStatusColor(question.workflow_status_code)
+                  }`}>
+                    {getWorkflowStatusLabel(question)}
+                  </span>
+                </td>
+
                 {/* Actions */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center space-x-3 space-x-reverse">
+                    {onApprove && question.workflow_status_code !== 'approved' && (
+                      <button
+                        onClick={() => onApprove(question.id!)}
+                        className="text-emerald-600 hover:text-emerald-800 transition-colors"
+                        title="تایید برای انتشار"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    )}
+
+                    {onReject && question.workflow_status_code !== 'rejected' && (
+                      <button
+                        onClick={() => onReject(question.id!)}
+                        className="text-amber-600 hover:text-amber-800 transition-colors"
+                        title="رد سوال"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+
                     {/* View */}
                     <button
                       onClick={() => onView(question)}

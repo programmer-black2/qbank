@@ -4,6 +4,30 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/services/auth/auth.api";
 
+const normalizeDigits = (value: string) =>
+  value
+    .trim()
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+
+const getErrorMessage = (error: unknown) => {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const data = (error as { response?: { data?: unknown } }).response?.data;
+
+    if (typeof data === "string") return data;
+
+    if (typeof data === "object" && data !== null) {
+      const record = data as Record<string, unknown>;
+      const detail = record.detail || record.non_field_errors;
+
+      if (Array.isArray(detail)) return String(detail[0]);
+      if (typeof detail === "string") return detail;
+    }
+  }
+
+  return "ورود ناموفق بود. اطلاعات را بررسی کنید.";
+};
+
 export default function AuthorLoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -20,7 +44,10 @@ export default function AuthorLoginPage() {
       setLoading(true);
       setError("");
 
-      const response = await loginUser(formData);
+      const response = await loginUser({
+        ...formData,
+        phone_or_email: normalizeDigits(formData.phone_or_email),
+      });
 
       if (response.user?.role !== "Writer") {
         localStorage.removeItem("access");
@@ -35,8 +62,8 @@ export default function AuthorLoginPage() {
       localStorage.setItem("user", JSON.stringify(response.user));
 
       router.push("/author");
-    } catch {
-      setError("ورود ناموفق بود. اطلاعات را بررسی کنید.");
+    } catch (error) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -46,7 +73,7 @@ export default function AuthorLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 text-right shadow-sm "
+        className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 text-right shadow-sm"
       >
         <h1 className="mb-2 text-2xl font-black text-slate-900">
           ورود نویسنده

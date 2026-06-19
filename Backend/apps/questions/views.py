@@ -1,7 +1,7 @@
 from uuid import uuid4
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db.models import Count, Prefetch
+from django.db.models import Count, OuterRef, Prefetch, Q, Subquery
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets, filters, mixins
 from rest_framework.decorators import action
@@ -12,7 +12,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 
-from apps.questions.models import Question, QuestionReport
+from apps.accounts.models import Role
+from apps.questions.models import Question, QuestionReport, QuestionStatusHistory, QuestionWorkflowStatus
 from apps.core.models import EducationStage, Course, Year, ExamType
 from .serializers import (
     QuestionListSerializer,
@@ -28,7 +29,7 @@ from .serializers import (
     YearSerializer,
     ExamTypeSerializer,
 )
-from .permissions import HasActiveSubscription, IsAdminUser
+from .permissions import HasActiveSubscription, IsAdminUser, IsWriterUser
 from .filters import QuestionFilter
 from rest_framework.parsers import MultiPartParser, JSONParser
 
@@ -43,6 +44,69 @@ def get_media_type_from_content_type(content_type):
     if content_type == 'application/pdf':
         return 'pdf'
     return 'document'
+
+
+WORKFLOW_PENDING = 'pending'
+WORKFLOW_APPROVED = 'approved'
+WORKFLOW_REJECTED = 'rejected'
+
+WORKFLOW_STATUS_DEFAULTS = {
+    WORKFLOW_PENDING: {
+        'name': 'در انتظار تایید',
+        'description': 'سوال ثبت شده و منتظر بررسی ادمین است.',
+    },
+    WORKFLOW_APPROVED: {
+        'name': 'تایید شده',
+        'description': 'سوال توسط ادمین تایید شده و قابل انتشار است.',
+    },
+    WORKFLOW_REJECTED: {
+        'name': 'رد شده',
+        'description': 'سوال توسط ادمین رد شده است.',
+    },
+}
+
+
+def get_workflow_status(code):
+    defaults = WORKFLOW_STATUS_DEFAULTS[code]
+    status_obj, _ = QuestionWorkflowStatus.objects.get_or_create(
+        code=code,
+        defaults=defaults,
+    )
+    return status_obj
+
+
+def set_question_workflow_status(question, new_status_code, changed_by, note=None):
+    new_status = get_workflow_status(new_status_code)
+    old_status_id = (
+        QuestionStatusHistory.objects
+        .filter(question=question)
+        .order_by('-changed_at', '-id')
+        .values_list('new_status_id', flat=True)
+        .first()
+    )
+
+    QuestionStatusHistory.objects.create(
+        question=question,
+        old_status_id=old_status_id,
+        new_status=new_status,
+        changed_by=changed_by,
+        note=note,
+    )
+    return new_status
+
+
+def with_current_workflow_status(queryset):
+    latest_history = (
+        QuestionStatusHistory.objects
+        .filter(question_id=OuterRef('pk'))
+        .order_by('-changed_at', '-id')
+    )
+
+    return queryset.annotate(
+        current_status_id=Subquery(latest_history.values('new_status_id')[:1]),
+        current_status_code=Subquery(latest_history.values('new_status__code')[:1]),
+        current_status_name=Subquery(latest_history.values('new_status__name')[:1]),
+    )
 
 
 
@@ -68,7 +132,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsAdminUser()]
 
     def get_queryset(self):
-        return (
+        queryset = (
             Question.objects
             .select_related(
                 'exam_type',
@@ -81,6 +145,13 @@ class QuestionViewSet(viewsets.ModelViewSet):
             .all()
             .order_by('-created_at')
         )
+        queryset = with_current_workflow_status(queryset)
+
+        workflow_status = self.request.query_params.get('workflow_status')
+        if workflow_status:
+            queryset = queryset.filter(current_status_code=workflow_status)
+
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -94,7 +165,29 @@ class QuestionViewSet(viewsets.ModelViewSet):
         created_by از JWT استخراج می‌شود.
         وقتی JWTAuthentication فعال باشد، request.user از روی توکن پر می‌شود.
         """
-        serializer.save(created_by=self.request.user)
+        question = serializer.save(created_by=self.request.user)
+        initial_status = (
+            WORKFLOW_APPROVED
+            if self.request.user.role.name_roles == Role.NameChoices.ADMIN
+            else WORKFLOW_PENDING
+        )
+        set_question_workflow_status(
+            question,
+            initial_status,
+            self.request.user,
+            note='وضعیت اولیه پس از ثبت سوال',
+        )
+
+    def perform_update(self, serializer):
+        question = serializer.save()
+
+        if self.request.user.role.name_roles == Role.NameChoices.WRITER:
+            set_question_workflow_status(
+                question,
+                WORKFLOW_PENDING,
+                self.request.user,
+                note='ویرایش سوال توسط نویسنده و ارسال دوباره برای بررسی',
+            )
 
     @action(detail=False, methods=['get'], url_path='category-tree')
     def category_tree(self, request):
@@ -179,6 +272,66 @@ class QuestionViewSet(viewsets.ModelViewSet):
             'today_questions': today_questions
         })
 
+    @action(detail=True, methods=['post'], url_path='approve')
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        queryset = self.get_queryset()
+        notifications = (
+            QuestionStatusHistory.objects
+            .filter(
+                question__created_by=request.user,
+                changed_by__role__name_roles=Role.NameChoices.ADMIN,
+                new_status__code__in=[WORKFLOW_APPROVED, WORKFLOW_REJECTED],
+            )
+            .select_related('question', 'new_status', 'changed_by')
+            .order_by('-changed_at', '-id')[:10]
+        )
+
+        return Response({
+            'stats': {
+                'total': queryset.count(),
+                'pending': queryset.filter(current_status_code=WORKFLOW_PENDING).count(),
+                'approved': queryset.filter(current_status_code=WORKFLOW_APPROVED).count(),
+                'rejected': queryset.filter(current_status_code=WORKFLOW_REJECTED).count(),
+            },
+            'notifications': [
+                {
+                    'id': item.id,
+                    'question_id': item.question_id,
+                    'question_text': item.question.question_text,
+                    'status_code': item.new_status.code,
+                    'status_name': item.new_status.name,
+                    'changed_by_name': item.changed_by.full_name,
+                    'note': item.note,
+                    'changed_at': item.changed_at,
+                }
+                for item in notifications
+            ],
+        })
+
+    def approve(self, request, pk=None):
+        question = self.get_object()
+        set_question_workflow_status(
+            question,
+            WORKFLOW_APPROVED,
+            request.user,
+            note=request.data.get('note') or 'تایید توسط ادمین',
+        )
+        serializer = QuestionDetailSerializer(question)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        question = self.get_object()
+        set_question_workflow_status(
+            question,
+            WORKFLOW_REJECTED,
+            request.user,
+            note=request.data.get('note') or 'رد توسط ادمین',
+        )
+        serializer = QuestionDetailSerializer(question)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['post'], url_path='upload-media', parser_classes=[MultiPartParser])
     def upload_media(self, request):
         """آپلود فایل‌های سوال/پاسخ و برگرداندن آبجکت سازگار با QuestionMediaSerializer"""
@@ -224,7 +377,7 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        return (
+        queryset = (
             Question.objects
             .select_related(
                 'exam_type',
@@ -235,6 +388,9 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             .prefetch_related('choices', 'media_items', 'answer__media_items')
             .all()
             .order_by('-created_at')
+        )
+        return with_current_workflow_status(queryset).filter(
+            Q(current_status_code=WORKFLOW_APPROVED) | Q(current_status_code__isnull=True)
         )
 
     @extend_schema(
@@ -322,6 +478,46 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             tree.append(stage_node)
 
         return Response(tree)
+
+
+class AuthorQuestionViewSet(QuestionViewSet):
+    """Question CRUD for writers. Writers can only manage their own questions."""
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsWriterUser()]
+
+    def get_queryset(self):
+        return super().get_queryset().filter(created_by=self.request.user)
+
+    def perform_create(self, serializer):
+        question = serializer.save(created_by=self.request.user)
+        set_question_workflow_status(
+            question,
+            WORKFLOW_PENDING,
+            self.request.user,
+            note='ثبت سوال توسط نویسنده و ارسال برای بررسی',
+        )
+
+    def perform_update(self, serializer):
+        question = serializer.save()
+        set_question_workflow_status(
+            question,
+            WORKFLOW_PENDING,
+            self.request.user,
+            note='ویرایش سوال توسط نویسنده و ارسال دوباره برای بررسی',
+        )
+
+    def approve(self, request, pk=None):
+        return Response(
+            {'detail': 'نویسنده اجازه تایید سوال برای انتشار را ندارد.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    def reject(self, request, pk=None):
+        return Response(
+            {'detail': 'نویسنده اجازه رد سوال را ندارد.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class QuestionReportViewSet(mixins.ListModelMixin,

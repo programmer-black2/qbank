@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 type RoleGuardProps = {
@@ -24,35 +24,65 @@ const getStoredRole = () => {
   }
 };
 
+const getAuthSnapshot = () => {
+  if (typeof window === "undefined") {
+    return "pending|";
+  }
+
+  const hasAccess = localStorage.getItem("access") ? "1" : "0";
+  return `${hasAccess}|${getStoredRole() || ""}`;
+};
+
+const getServerAuthSnapshot = () => "pending|";
+
+const subscribeToAuthStorage = (callback: () => void) => {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleStorage = () => callback();
+  window.addEventListener("storage", handleStorage);
+  queueMicrotask(callback);
+
+  return () => window.removeEventListener("storage", handleStorage);
+};
+
 export default function RoleGuard({
   allowedRoles,
   loginPath,
   children,
 }: RoleGuardProps) {
   const router = useRouter();
-  const [authState] = useState(() => {
-    if (typeof window === "undefined") {
-      return { hasAccess: false, role: undefined as string | undefined };
-    }
-
-    return {
-      hasAccess: Boolean(localStorage.getItem("access")),
-      role: getStoredRole(),
-    };
-  });
+  const authSnapshot = useSyncExternalStore(
+    subscribeToAuthStorage,
+    getAuthSnapshot,
+    getServerAuthSnapshot,
+  );
+  const [accessValue, role] = authSnapshot.split("|");
+  const checked = accessValue !== "pending";
+  const hasAccess = accessValue === "1";
 
   useEffect(() => {
-    if (!authState.hasAccess) {
+    if (!checked) {
+      return;
+    }
+
+    if (!hasAccess) {
       router.replace(loginPath);
       return;
     }
 
-    if (!authState.role || !allowedRoles.includes(authState.role)) {
+    if (!role || !allowedRoles.includes(role)) {
       router.replace("/");
     }
-  }, [allowedRoles, authState.hasAccess, authState.role, loginPath, router]);
+  }, [allowedRoles, checked, hasAccess, loginPath, role, router]);
 
-  if (!authState.hasAccess || !authState.role || !allowedRoles.includes(authState.role)) {
+  if (
+    !checked ||
+    !hasAccess ||
+    !role ||
+    !allowedRoles.includes(role)
+  ) {
     return null;
   }
 

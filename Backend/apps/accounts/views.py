@@ -15,8 +15,9 @@ from .serializers import (
     UserUpdateSerializer, ChangePasswordSerializer, ResetPasswordSerializer,LogoutSerializer,
     StudentRegisterRequestOTPSerializer, StudentRegisterVerifySerializer,
     StudentLoginRequestOTPSerializer, StudentLoginVerifySerializer,
+    WriterCreateSerializer, WriterUpdateSerializer,
 )
-from .models import User
+from .models import Role, User
 from ..questions.permissions import IsAdminUser
 
 
@@ -306,3 +307,42 @@ class UserViewSet(mixins.CreateModelMixin,
 
 # برای راحتی کار، اکشن‌های اضافی برای ViewSet
 from rest_framework.decorators import action
+
+
+class WriterViewSet(mixins.CreateModelMixin,
+                    mixins.UpdateModelMixin,
+                    mixins.DestroyModelMixin,
+                    mixins.ListModelMixin,
+                    mixins.RetrieveModelMixin,
+                    viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['full_name', 'phone']
+    ordering_fields = ['created_at', 'full_name', 'phone']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return (
+            User.objects
+            .filter(role__name_roles=Role.NameChoices.WRITER)
+            .select_related('role')
+            .order_by('-created_at')
+        )
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return WriterCreateSerializer
+        if self.action in ['update', 'partial_update']:
+            return WriterUpdateSerializer
+        return UserSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        writer = self.get_object()
+
+        if writer.created_questions.exists():
+            return Response(
+                {'error': 'این نویسنده سوال ثبت‌شده دارد و قابل حذف نیست. ابتدا سوالات او را حذف یا منتقل کنید.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return super().destroy(request, *args, **kwargs)

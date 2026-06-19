@@ -204,21 +204,24 @@ export default function AdminDashboard() {
             </button>
 
             {/* مدیریت کاربران */}
-            <div className="group bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6 text-right border border-purple-200 opacity-50 cursor-not-allowed">
+            <button
+              onClick={() => router.push('/admin/writers')}
+              className="group bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl p-6 text-right transition-all duration-200 border border-purple-200 hover:border-purple-300"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-500 group-hover:bg-purple-600 rounded-lg flex items-center justify-center transition-colors">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                   </svg>
                 </div>
-                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-purple-500 group-hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت کاربران</h4>
-              <p className="text-sm text-gray-600">بزودی...</p>
-            </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت نویسنده‌ها</h4>
+              <p className="text-sm text-gray-600">ثبت، ویرایش، حذف و مشاهده حساب‌های نویسنده</p>
+            </button>
 
             {/* گزارش‌ها */}
             <div className="group bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 text-right border border-orange-200 opacity-50 cursor-not-allowed">

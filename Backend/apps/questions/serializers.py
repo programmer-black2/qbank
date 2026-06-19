@@ -7,6 +7,7 @@ from apps.questions.models import (
     QuestionChoice,
     QuestionMedia,
     QuestionReport,
+    QuestionStatusHistory,
 )
 from apps.core.models import EducationStage, Course, Year, ExamType
 from apps.accounts.models import User
@@ -111,6 +112,9 @@ class QuestionListSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
+    workflow_status_id = serializers.SerializerMethodField()
+    workflow_status_code = serializers.SerializerMethodField()
+    workflow_status_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -118,9 +122,43 @@ class QuestionListSerializer(serializers.ModelSerializer):
             'id', 'question_text', 'question_type', 'question_type_display',
             'difficulty', 'difficulty_display', 'created_at', 'updated_at',
             'exam_type_name', 'year_number', 'course_name', 'stage_name',
-            'created_by_name'
+            'created_by_name', 'workflow_status_id', 'workflow_status_code',
+            'workflow_status_name'
         ]
         read_only_fields = fields
+
+    def _get_latest_status(self, obj):
+        if hasattr(obj, 'current_status_id'):
+            return {
+                'id': obj.current_status_id,
+                'code': obj.current_status_code,
+                'name': obj.current_status_name,
+            }
+
+        latest_history = (
+            obj.status_history
+            .select_related('new_status')
+            .order_by('-changed_at', '-id')
+            .first()
+        )
+
+        if not latest_history:
+            return {'id': None, 'code': None, 'name': None}
+
+        return {
+            'id': latest_history.new_status_id,
+            'code': latest_history.new_status.code,
+            'name': latest_history.new_status.name,
+        }
+
+    def get_workflow_status_id(self, obj):
+        return self._get_latest_status(obj)['id']
+
+    def get_workflow_status_code(self, obj):
+        return self._get_latest_status(obj)['code']
+
+    def get_workflow_status_name(self, obj):
+        return self._get_latest_status(obj)['name']
 
 
 class StudentQuestionSerializer(serializers.ModelSerializer):
@@ -243,13 +281,20 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
     answer_media_items = serializers.SerializerMethodField()                 # رسانه‌های پاسخ تشریحی (جدید)
     exam_type_detail = ExamTypeSerializer(source='exam_type', read_only=True)
     exam_type_id = serializers.IntegerField(source='exam_type.id', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    status_history = serializers.SerializerMethodField()
+    workflow_status_id = serializers.SerializerMethodField()
+    workflow_status_code = serializers.SerializerMethodField()
+    workflow_status_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
         fields = [
             'id', 'question_text', 'question_type', 'difficulty',
             'created_at', 'updated_at', 'exam_type_id', 'exam_type_detail',
-            'choices', 'answer', 'media_items', 'answer_media_items'
+            'created_by_name', 'choices', 'answer', 'media_items',
+            'answer_media_items', 'workflow_status_id', 'workflow_status_code',
+            'workflow_status_name', 'status_history'
         ]
         read_only_fields = fields
 
@@ -259,6 +304,61 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'answer') and obj.answer:
             return QuestionMediaSerializer(obj.answer.media_items.all(), many=True).data
         return []
+
+    def _get_latest_status(self, obj):
+        if hasattr(obj, 'current_status_id'):
+            return {
+                'id': obj.current_status_id,
+                'code': obj.current_status_code,
+                'name': obj.current_status_name,
+            }
+
+        latest_history = (
+            obj.status_history
+            .select_related('new_status')
+            .order_by('-changed_at', '-id')
+            .first()
+        )
+
+        if not latest_history:
+            return {'id': None, 'code': None, 'name': None}
+
+        return {
+            'id': latest_history.new_status_id,
+            'code': latest_history.new_status.code,
+            'name': latest_history.new_status.name,
+        }
+
+    def get_workflow_status_id(self, obj):
+        return self._get_latest_status(obj)['id']
+
+    def get_workflow_status_code(self, obj):
+        return self._get_latest_status(obj)['code']
+
+    def get_workflow_status_name(self, obj):
+        return self._get_latest_status(obj)['name']
+
+    def get_status_history(self, obj):
+        history = (
+            QuestionStatusHistory.objects
+            .filter(question=obj)
+            .select_related('old_status', 'new_status', 'changed_by')
+            .order_by('-changed_at', '-id')
+        )
+
+        return [
+            {
+                'id': item.id,
+                'old_status_code': item.old_status.code if item.old_status else None,
+                'old_status_name': item.old_status.name if item.old_status else None,
+                'new_status_code': item.new_status.code,
+                'new_status_name': item.new_status.name,
+                'changed_by_name': item.changed_by.full_name,
+                'note': item.note,
+                'changed_at': item.changed_at,
+            }
+            for item in history
+        ]
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):

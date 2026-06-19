@@ -30,6 +30,17 @@ export interface ExamTypeDetail {
   stage_name: string;
 }
 
+export interface QuestionStatusHistoryItem {
+  id: number;
+  old_status_code?: string | null;
+  old_status_name?: string | null;
+  new_status_code: string;
+  new_status_name: string;
+  changed_by_name: string;
+  note?: string | null;
+  changed_at: string;
+}
+
 export interface Question {
   id?: number;
   question_text: string;
@@ -50,10 +61,14 @@ export interface Question {
   created_by_name?: string;
   question_type_display?: string;
   difficulty_display?: string;
+  workflow_status_id?: number;
+  workflow_status_code?: 'pending' | 'approved' | 'rejected' | string;
+  workflow_status_name?: string;
   created_at?: string;
   updated_at?: string;
   media_items?: QuestionMedia[];
   answer_media_items?: QuestionMedia[];
+  status_history?: QuestionStatusHistoryItem[];
 }
 
 export interface QuestionListResponse {
@@ -84,6 +99,29 @@ export interface QuestionStatistics {
   today_questions: number;
 }
 
+export interface AuthorNotification {
+  id: number;
+  question_id: number;
+  question_text: string;
+  status_code: 'approved' | 'rejected' | string;
+  status_name: string;
+  changed_by_name: string;
+  note?: string | null;
+  changed_at: string;
+}
+
+export interface AuthorDashboardStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface AuthorDashboardResponse {
+  stats: AuthorDashboardStats;
+  notifications: AuthorNotification[];
+}
+
 // ================= QUESTION CRUD =================
 
 export const getQuestions = async (params?: {
@@ -97,6 +135,7 @@ export const getQuestions = async (params?: {
   stage_id?: number;
   question_type?: string;
   difficulty?: string;
+  workflow_status?: string;
   ordering?: string;
 }): Promise<QuestionListResponse> => {
   const token = localStorage.getItem("access");
@@ -117,6 +156,75 @@ export const getQuestions = async (params?: {
   return response.data;
 };
 
+export const getAuthorQuestions = async (params?: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  exam_type?: number;
+  exam_type_id?: number;
+  year_id?: number;
+  course_id?: number;
+  stage_id?: number;
+  question_type?: string;
+  difficulty?: string;
+  workflow_status?: string;
+  ordering?: string;
+}): Promise<QuestionListResponse> => {
+  const requestParams = params
+    ? {
+        ...params,
+        exam_type_id: params.exam_type_id ?? params.exam_type,
+        exam_type: undefined,
+      }
+    : undefined;
+
+  const response = await api.get("/api/questions/author/questions/", {
+    params: requestParams,
+  });
+  return response.data;
+};
+
+export const getAuthorDashboard = async (): Promise<AuthorDashboardResponse> => {
+  try {
+    const response = await api.get("/api/questions/author/questions/dashboard/");
+    return response.data;
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+
+    if (status !== 404) {
+      throw error;
+    }
+
+    const questionsResponse = await getAuthorQuestions({ page_size: 100 });
+    const questions = questionsResponse.results || [];
+
+    return {
+      stats: {
+        total: questionsResponse.count ?? questions.length,
+        pending: questions.filter((question) => question.workflow_status_code === "pending").length,
+        approved: questions.filter((question) => question.workflow_status_code === "approved").length,
+        rejected: questions.filter((question) => question.workflow_status_code === "rejected").length,
+      },
+      notifications: questions
+        .filter((question) =>
+          question.workflow_status_code === "approved" ||
+          question.workflow_status_code === "rejected"
+        )
+        .slice(0, 10)
+        .map((question) => ({
+          id: Number(question.id),
+          question_id: Number(question.id),
+          question_text: question.question_text,
+          status_code: question.workflow_status_code || "",
+          status_name: question.workflow_status_name || "",
+          changed_by_name: "ادمین",
+          note: null,
+          changed_at: question.updated_at || question.created_at || new Date().toISOString(),
+        })),
+    };
+  }
+};
+
 export const getQuestion = async (id: number): Promise<Question> => {
   const token = localStorage.getItem("access");
   const response = await api.get(`/api/questions/questions/${id}/`, {
@@ -124,6 +232,11 @@ export const getQuestion = async (id: number): Promise<Question> => {
       Authorization: `Bearer ${token}`,
     },
   });
+  return response.data;
+};
+
+export const getAuthorQuestion = async (id: number): Promise<Question> => {
+  const response = await api.get(`/api/questions/author/questions/${id}/`);
   return response.data;
 };
 
@@ -164,6 +277,11 @@ export const createQuestion = async (data: Omit<Question, 'id'>): Promise<Questi
   return response.data;
 };
 
+export const createAuthorQuestion = async (data: Omit<Question, 'id'>): Promise<Question> => {
+  const response = await api.post("/api/questions/author/questions/", data);
+  return response.data;
+};
+
 export const updateQuestion = async (id: number, data: Partial<Question>): Promise<Question> => {
   const token = localStorage.getItem("access");
   const response = await api.patch(`/api/questions/questions/${id}/`, data, {
@@ -174,6 +292,11 @@ export const updateQuestion = async (id: number, data: Partial<Question>): Promi
   return response.data;
 };
 
+export const updateAuthorQuestion = async (id: number, data: Partial<Question>): Promise<Question> => {
+  const response = await api.patch(`/api/questions/author/questions/${id}/`, data);
+  return response.data;
+};
+
 export const deleteQuestion = async (id: number): Promise<void> => {
   const token = localStorage.getItem("access");
   await api.delete(`/api/questions/questions/${id}/`, {
@@ -181,6 +304,10 @@ export const deleteQuestion = async (id: number): Promise<void> => {
       Authorization: `Bearer ${token}`,
     },
   });
+};
+
+export const deleteAuthorQuestion = async (id: number): Promise<void> => {
+  await api.delete(`/api/questions/author/questions/${id}/`);
 };
 
 export const uploadQuestionMedia = async (files: File[]): Promise<QuestionMedia[]> => {
@@ -198,6 +325,32 @@ export const uploadQuestionMedia = async (files: File[]): Promise<QuestionMedia[
     },
   });
 
+  return response.data;
+};
+
+export const uploadAuthorQuestionMedia = async (files: File[]): Promise<QuestionMedia[]> => {
+  const formData = new FormData();
+
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await api.post("/api/questions/author/questions/upload-media/", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data;
+};
+
+export const approveQuestion = async (id: number, note?: string): Promise<Question> => {
+  const response = await api.post(`/api/questions/questions/${id}/approve/`, { note });
+  return response.data;
+};
+
+export const rejectQuestion = async (id: number, note?: string): Promise<Question> => {
+  const response = await api.post(`/api/questions/questions/${id}/reject/`, { note });
   return response.data;
 };
 

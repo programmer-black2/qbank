@@ -5,6 +5,11 @@ from django.db.models import Q
 
 User = get_user_model()
 
+
+def normalize_phone(value):
+    digit_map = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+    return str(value or "").strip().translate(digit_map)
+
 class PhoneOrEmailBackend(ModelBackend):
     """
     بک‌اند احراز هویت که اجازه ورود با شماره موبایل یا ایمیل را می‌دهد
@@ -18,9 +23,12 @@ class PhoneOrEmailBackend(ModelBackend):
             else:
                 return None
         
+        username = str(username or "").strip()
+        normalized_username = normalize_phone(username)
+
         # جستجو بر اساس شماره موبایل یا ایمیل
         try:
-            user = User.objects.get(Q(phone=username) | Q(email=username))
+            user = User.objects.get(Q(phone=normalized_username) | Q(email=username))
         except User.DoesNotExist:
             return None
         

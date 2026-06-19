@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent } from "@mui/material";
+import { useRouter } from "next/navigation";
 import AdminHeader from "@/components/ui/AdminHeader";
 import QuestionForm from "@/components/question/QuestionForm";
 import QuestionTable from "@/components/question/QuestionTable";
+import { logoutUser } from "@/services/auth/auth.api";
 import { questionService } from "@/services/question/question.service";
 import { Question, QuestionStatistics } from "@/services/question/question.api";
 
@@ -14,6 +16,7 @@ type QuestionManagementPanelProps = {
   backHref: string;
   backLabel?: string;
   showStats?: boolean;
+  mode?: "admin" | "author";
 };
 
 export default function QuestionManagementPanel({
@@ -22,7 +25,9 @@ export default function QuestionManagementPanel({
   backHref,
   backLabel,
   showStats = true,
+  mode = "admin",
 }: QuestionManagementPanelProps) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionStats, setQuestionStats] = useState<QuestionStatistics | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,7 +40,17 @@ export default function QuestionManagementPanel({
     question_type: "",
     difficulty: "",
     exam_type: "",
+    workflow_status: "",
   });
+
+  const questionApi = useMemo(() => ({
+    getQuestions: mode === "author" ? questionService.getAuthorQuestions : questionService.getQuestions,
+    getQuestion: mode === "author" ? questionService.getAuthorQuestion : questionService.getQuestion,
+    createQuestion: mode === "author" ? questionService.createAuthorQuestion : questionService.createQuestion,
+    updateQuestion: mode === "author" ? questionService.updateAuthorQuestion : questionService.updateQuestion,
+    deleteQuestion: mode === "author" ? questionService.deleteAuthorQuestion : questionService.deleteQuestion,
+    uploadMedia: mode === "author" ? questionService.uploadAuthorQuestionMedia : questionService.uploadQuestionMedia,
+  }), [mode]);
 
   const loadQuestions = useCallback(async () => {
     try {
@@ -45,11 +60,12 @@ export default function QuestionManagementPanel({
         question_type: filters.question_type || undefined,
         difficulty: filters.difficulty || undefined,
         exam_type: filters.exam_type ? Number(filters.exam_type) : undefined,
+        workflow_status: filters.workflow_status || undefined,
       };
 
       const [questionsResponse, statsData] = await Promise.all([
-        questionService.getQuestions(params),
-        showStats ? questionService.getStatistics().catch(() => null) : Promise.resolve(null),
+        questionApi.getQuestions(params),
+        mode === "admin" && showStats ? questionService.getStatistics().catch(() => null) : Promise.resolve(null),
       ]);
 
       setQuestions(questionsResponse.results || questionsResponse);
@@ -59,7 +75,7 @@ export default function QuestionManagementPanel({
     } finally {
       setLoading(false);
     }
-  }, [filters, searchTerm, showStats]);
+  }, [filters, mode, questionApi, searchTerm, showStats]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -70,7 +86,7 @@ export default function QuestionManagementPanel({
   }, [loadQuestions]);
 
   const handleCreateQuestion = async (questionData: Question) => {
-    await questionService.createQuestion(questionData);
+    await questionApi.createQuestion(questionData);
     await loadQuestions();
     setIsModalOpen(false);
     setEditingQuestion(null);
@@ -79,7 +95,7 @@ export default function QuestionManagementPanel({
   const handleUpdateQuestion = async (questionData: Question) => {
     if (!editingQuestion?.id) return;
 
-    await questionService.updateQuestion(editingQuestion.id, questionData);
+    await questionApi.updateQuestion(editingQuestion.id, questionData);
     await loadQuestions();
     setIsModalOpen(false);
     setEditingQuestion(null);
@@ -90,7 +106,18 @@ export default function QuestionManagementPanel({
       return;
     }
 
-    await questionService.deleteQuestion(id);
+    await questionApi.deleteQuestion(id);
+    await loadQuestions();
+  };
+
+  const handleApproveQuestion = async (id: number) => {
+    await questionService.approveQuestion(id);
+    await loadQuestions();
+  };
+
+  const handleRejectQuestion = async (id: number) => {
+    const note = window.prompt("دلیل رد سوال را وارد کنید (اختیاری):") || undefined;
+    await questionService.rejectQuestion(id, note);
     await loadQuestions();
   };
 
@@ -102,7 +129,7 @@ export default function QuestionManagementPanel({
     setDetailLoadingId(question.id);
 
     try {
-      return await questionService.getQuestion(question.id);
+      return await questionApi.getQuestion(question.id);
     } catch (error) {
       console.error("Error loading question details:", error);
       alert("خطا در دریافت جزئیات سوال");
@@ -140,7 +167,24 @@ export default function QuestionManagementPanel({
       question_type: "",
       difficulty: "",
       exam_type: "",
+      workflow_status: "",
     });
+  };
+
+  const handleAuthorLogout = async () => {
+    try {
+      const refreshToken = localStorage.getItem("refresh");
+      if (refreshToken) {
+        await logoutUser(refreshToken);
+      }
+    } catch {
+      // خروج سمت کاربر باید حتی در صورت منقضی بودن توکن کامل شود.
+    } finally {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      localStorage.removeItem("user");
+      router.push("/author/login");
+    }
   };
 
   return (
@@ -150,6 +194,7 @@ export default function QuestionManagementPanel({
         subtitle={subtitle}
         backHref={backHref}
         backLabel={backLabel}
+        onLogout={mode === "author" ? handleAuthorLogout : undefined}
       />
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -204,6 +249,17 @@ export default function QuestionManagementPanel({
                 <option value="unknown">نامشخص</option>
               </select>
 
+              <select
+                value={filters.workflow_status}
+                onChange={(event) => setFilters((prev) => ({ ...prev, workflow_status: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto"
+              >
+                <option value="">همه وضعیت‌ها</option>
+                <option value="pending">در انتظار تایید</option>
+                <option value="approved">تایید شده</option>
+                <option value="rejected">رد شده</option>
+              </select>
+
               <button
                 onClick={clearFilters}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 sm:w-auto"
@@ -236,6 +292,8 @@ export default function QuestionManagementPanel({
           onEdit={handleEditQuestion}
           onDelete={handleDeleteQuestion}
           onView={handleViewQuestion}
+          onApprove={mode === "admin" ? handleApproveQuestion : undefined}
+          onReject={mode === "admin" ? handleRejectQuestion : undefined}
         />
 
         <Dialog open={isModalOpen} onClose={handleModalClose} maxWidth="lg" fullWidth>
@@ -244,6 +302,7 @@ export default function QuestionManagementPanel({
               question={editingQuestion || undefined}
               onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion}
               onCancel={handleModalClose}
+              uploadMedia={questionApi.uploadMedia}
             />
           </DialogContent>
         </Dialog>
@@ -281,6 +340,7 @@ export default function QuestionManagementPanel({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <DetailItem label="نوع سوال" value={viewingQuestion.question_type_display || viewingQuestion.question_type} />
                   <DetailItem label="سطح دشواری" value={viewingQuestion.difficulty_display || viewingQuestion.difficulty} />
+                  <DetailItem label="وضعیت" value={viewingQuestion.workflow_status_name || viewingQuestion.workflow_status_code} />
                   <DetailItem label="شناسه نوع آزمون" value={viewingQuestion.exam_type_id} />
                   <DetailItem
                     label="ایجاد"
@@ -313,6 +373,34 @@ export default function QuestionManagementPanel({
                             <span className="mr-2 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
                               پاسخ صحیح
                             </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {viewingQuestion.status_history && viewingQuestion.status_history.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">تاریخچه وضعیت:</label>
+                    <div className="mt-2 space-y-2">
+                      {viewingQuestion.status_history.map((item) => (
+                        <div key={item.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-gray-900">
+                              {item.new_status_name || item.new_status_code}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {item.changed_at ? new Date(item.changed_at).toLocaleString("fa-IR") : ""}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            توسط {item.changed_by_name || "-"}
+                          </p>
+                          {item.note && (
+                            <p className="mt-2 rounded-lg bg-white p-2 text-sm leading-6 text-gray-700">
+                              {item.note}
+                            </p>
                           )}
                         </div>
                       ))}
