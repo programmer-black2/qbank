@@ -203,16 +203,36 @@ export default function AdminDashboard() {
               <p className="text-sm text-gray-600">مقاطع، دوره‌ها، سال‌ها و انواع آزمون</p>
             </button>
 
-            {/* مدیریت کاربران */}
+            <button
+              onClick={() => router.push('/admin/public-samples')}
+              className="group bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-xl p-6 text-right transition-all duration-200 border border-emerald-200 hover:border-emerald-300"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-emerald-500 group-hover:bg-emerald-600 rounded-lg flex items-center justify-center transition-colors">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+                <svg className="w-5 h-5 text-emerald-500 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">درس‌های نمونه عمومی</h4>
+              <p className="text-sm text-gray-600">انتخاب درس‌هایی که برای کاربران بدون اشتراک نمایش داده می‌شوند</p>
+            </button>
+
             <button
               onClick={() => router.push('/admin/writers')}
               className="group bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl p-6 text-right transition-all duration-200 border border-purple-200 hover:border-purple-300"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-purple-500 group-hover:bg-purple-600 rounded-lg flex items-center justify-center transition-colors">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg> */}
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.878.513L7 17l.659-3.95A2 2 0 018.172 12.172L9 13z" />
                   </svg>
                 </div>
                 <svg className="w-5 h-5 text-purple-500 group-hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +277,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* مدیریت و دسترسی طراح سوالات */}
-            <div className="group bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl p-6 text-right border border-indigo-200 opacity-50 cursor-not-allowed">
+            {/* <div className="group bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl p-6 text-right border border-indigo-200 opacity-50 cursor-not-allowed">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +290,7 @@ export default function AdminDashboard() {
               </div>
               <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت و دسترسی طراح سوالات</h4>
               <p className="text-sm text-gray-600">بزودی...</p>
-            </div>
+            </div> */}
 
             {/* گزارش کاربران برای سوالات */}
             <div className="group bg-gradient-to-r from-rose-50 to-rose-100 rounded-xl p-6 text-right border border-rose-200 opacity-50 cursor-not-allowed">

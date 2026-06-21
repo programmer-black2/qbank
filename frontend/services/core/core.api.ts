@@ -14,6 +14,7 @@ export interface Course {
   stage_id?: number;
   stage_name?: string;
   years_count?: number;
+  is_public_sample?: boolean;
 }
 
 export interface Year {
@@ -113,6 +114,19 @@ export const createCourse = async (data: Omit<Course, 'id' | 'stage_name' | 'yea
 export const updateCourse = async (id: number, data: Partial<Course>): Promise<Course> => {
   const token = localStorage.getItem("access");
   const response = await api.patch(`/api/core/courses/${id}/`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const updatePublicSampleCourses = async (data: {
+  course_ids: number[];
+  is_public_sample: boolean;
+}): Promise<Course[]> => {
+  const token = localStorage.getItem("access");
+  const response = await api.post("/api/core/courses/public-samples/", data, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

@@ -109,6 +109,23 @@ def with_current_workflow_status(queryset):
     )
 
 
+def filter_visible_questions(queryset):
+    return with_current_workflow_status(queryset).filter(
+        Q(current_status_code=WORKFLOW_APPROVED) | Q(current_status_code__isnull=True)
+    )
+
+
+def get_public_sample_question_counts_by_exam_type():
+    return dict(
+        filter_visible_questions(
+            Question.objects.filter(exam_type__year__course__is_public_sample=True)
+        )
+        .values('exam_type_id')
+        .annotate(question_count=Count('id'))
+        .values_list('exam_type_id', 'question_count')
+    )
+
+
 
 class StandardPagination(PageNumberPagination):
     page_size = 20
@@ -389,9 +406,7 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             .all()
             .order_by('-created_at')
         )
-        return with_current_workflow_status(queryset).filter(
-            Q(current_status_code=WORKFLOW_APPROVED) | Q(current_status_code__isnull=True)
-        )
+        return filter_visible_questions(queryset)
 
     @extend_schema(
         responses={200: StudentQuestionAnswerSerializer},
@@ -476,6 +491,119 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
                 stage_node['children'].append(course_node)
 
             tree.append(stage_node)
+
+        return Response(tree)
+
+
+class PublicQuestionViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    serializer_class = StudentQuestionSerializer
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = QuestionFilter
+    search_fields = ['question_text', 'id']
+    ordering_fields = [
+        'created_at',
+        'difficulty',
+        'exam_type__year__years_number',
+        'exam_type__year__course__name_course',
+    ]
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        queryset = (
+            Question.objects
+            .select_related(
+                'exam_type',
+                'exam_type__year',
+                'exam_type__year__course',
+                'exam_type__year__course__stage',
+            )
+            .prefetch_related('choices', 'media_items', 'answer__media_items')
+            .filter(exam_type__year__course__is_public_sample=True)
+            .order_by('-created_at')
+        )
+        return filter_visible_questions(queryset)
+
+    @extend_schema(
+        responses={200: StudentQuestionAnswerSerializer},
+        description='Return the answer sheet for one public sample question.',
+    )
+    @action(detail=True, methods=['get'], url_path='answer')
+    def answer(self, request, pk=None):
+        question = self.get_object()
+        serializer = StudentQuestionAnswerSerializer(question)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='category-tree')
+    def category_tree(self, request):
+        tree = []
+        public_question_counts = get_public_sample_question_counts_by_exam_type()
+
+        exam_types_queryset = ExamType.objects.order_by('name_exam_types')
+        years_queryset = Year.objects.prefetch_related(
+            Prefetch('exam_types', queryset=exam_types_queryset)
+        ).order_by('years_number')
+        courses_queryset = Course.objects.filter(
+            is_public_sample=True
+        ).prefetch_related(
+            Prefetch('years', queryset=years_queryset)
+        ).order_by('name_course')
+        stages = (
+            EducationStage.objects
+            .prefetch_related(Prefetch('courses', queryset=courses_queryset))
+            .order_by('id')
+        )
+
+        for stage in stages:
+            public_courses = list(stage.courses.all())
+            if not public_courses:
+                continue
+
+            stage_node = {
+                'id': stage.id,
+                'name': stage.name_education_stage,
+                'type': 'stage',
+                'children': []
+            }
+
+            for course in public_courses:
+                course_node = {
+                    'id': course.id,
+                    'name': course.name_course,
+                    'type': 'course',
+                    'is_public_sample': course.is_public_sample,
+                    'children': []
+                }
+
+                for year in course.years.all():
+                    year_node = {
+                        'id': year.id,
+                        'name': f"Year {year.years_number}",
+                        'type': 'year',
+                        'children': []
+                    }
+
+                    for exam_type in year.exam_types.all():
+                        question_count = public_question_counts.get(exam_type.id, 0)
+                        if question_count == 0:
+                            continue
+
+                        year_node['children'].append({
+                            'id': exam_type.id,
+                            'name': exam_type.get_name_exam_types_display(),
+                            'type': 'exam_type',
+                            'question_count': question_count
+                        })
+
+                    if year_node['children']:
+                        course_node['children'].append(year_node)
+
+                if course_node['children']:
+                    stage_node['children'].append(course_node)
+
+            if stage_node['children']:
+                tree.append(stage_node)
 
         return Response(tree)
 

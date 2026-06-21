@@ -29,7 +29,14 @@ class CourseSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Course
-        fields = ['id', 'name_course', 'stage_id', 'stage_name', 'years_count']
+        fields = [
+            'id',
+            'name_course',
+            'stage_id',
+            'stage_name',
+            'years_count',
+            'is_public_sample',
+        ]
     
     def validate_name_course(self, value):
         if not value or not value.strip():
@@ -56,6 +63,25 @@ class CourseSerializer(serializers.ModelSerializer):
                     {"name_course": "این دوره برای این مقطع قبلاً ثبت شده است"}
                 )
         return data
+
+
+class CoursePublicSampleBulkUpdateSerializer(serializers.Serializer):
+    course_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    is_public_sample = serializers.BooleanField()
+
+    def validate_course_ids(self, value):
+        existing_ids = set(Course.objects.filter(id__in=value).values_list('id', flat=True))
+        missing_ids = sorted(set(value) - existing_ids)
+
+        if missing_ids:
+            raise serializers.ValidationError(
+                f"Course ids not found: {', '.join(map(str, missing_ids))}"
+            )
+
+        return value
 
 
 class YearSerializer(serializers.ModelSerializer):

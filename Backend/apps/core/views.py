@@ -1,5 +1,6 @@
 # apps/core/views.py
 from rest_framework import viewsets, mixins, status
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,7 +11,8 @@ from apps.exam.models import Exam
 from apps.questions.models import Question
 from .serializers import (
     EducationStageSerializer, CourseSerializer,
-    YearSerializer, ExamTypeSerializer, CategoryNodeSerializer
+    YearSerializer, ExamTypeSerializer, CategoryNodeSerializer,
+    CoursePublicSampleBulkUpdateSerializer,
 )
 from apps.questions.permissions import IsAdminUser
 
@@ -69,6 +71,31 @@ class CourseViewSet(mixins.CreateModelMixin,
         if self.action == 'list':
             return [AllowAny()]
         return [IsAuthenticated(), IsAdminUser()]
+
+    def get_queryset(self):
+        queryset = Course.objects.all().select_related('stage').order_by('stage_id', 'name_course')
+
+        is_public_sample = self.request.query_params.get('is_public_sample')
+        if is_public_sample is not None:
+            queryset = queryset.filter(is_public_sample=is_public_sample.lower() == 'true')
+
+        stage_id = self.request.query_params.get('stage_id')
+        if stage_id:
+            queryset = queryset.filter(stage_id=stage_id)
+
+        return queryset
+
+    @action(detail=False, methods=['post'], url_path='public-samples')
+    def public_samples(self, request):
+        serializer = CoursePublicSampleBulkUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        course_ids = serializer.validated_data['course_ids']
+        is_public_sample = serializer.validated_data['is_public_sample']
+        Course.objects.filter(id__in=course_ids).update(is_public_sample=is_public_sample)
+
+        courses = self.get_queryset().filter(id__in=course_ids)
+        return Response(CourseSerializer(courses, many=True).data)
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

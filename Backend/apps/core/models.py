@@ -23,6 +23,7 @@ class Course(models.Model):
         related_name="courses",
     )
     name_course = models.CharField(max_length=150)
+    is_public_sample = models.BooleanField(default=False)
 
     class Meta:
         db_table = "courses"

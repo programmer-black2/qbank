@@ -449,3 +449,6 @@ ADD INDEX idx_question_choices_question_is_correct (question_id, is_correct);
 ALTER TABLE user_subscriptions
 ADD INDEX idx_user_subscriptions_user_active (user_id, is_active),
 ADD INDEX idx_user_subscriptions_end_date (end_date);
+
+ALTER TABLE courses
+ADD COLUMN is_public_sample TINYINT(1) NOT NULL DEFAULT 0;
