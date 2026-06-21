@@ -5,8 +5,8 @@ import { Question } from '@/services/question/question.api';
 interface Props {
   questions: Question[];
   loading?: boolean;
-  onEdit: (question: Question) => void;
-  onDelete: (id: number) => void;
+  onEdit?: (question: Question) => void;
+  onDelete?: (id: number) => void;
   onView: (question: Question) => void;
   onCopy?: (question: Question) => void;
   onApprove?: (id: number) => void;
@@ -130,25 +130,29 @@ export default function QuestionTable({
         </button>
       )}
 
-      <button
-        onClick={() => onEdit(question)}
-        className="text-green-600 hover:text-green-800 transition-colors"
-        title="ÙˆÛŒØ±Ø§ÛŒØ´"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      </button>
+      {onEdit && (
+        <button
+          onClick={() => onEdit(question)}
+          className="text-green-600 hover:text-green-800 transition-colors"
+          title="ÙˆÛŒØ±Ø§ÛŒØ´"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+      )}
 
-      <button
-        onClick={() => onDelete(question.id!)}
-        className="text-red-600 hover:text-red-800 transition-colors"
-        title="Ø­Ø°Ù"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      </button>
+      {onDelete && (
+        <button
+          onClick={() => onDelete(question.id!)}
+          className="text-red-600 hover:text-red-800 transition-colors"
+          title="Ø­Ø°Ù"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 
@@ -174,7 +178,7 @@ export default function QuestionTable({
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">هیچ سوالی یافت نشد</h3>
-        <p className="text-gray-500">سوال جدید اضافه کنید یا فیلترهای جستجو را تغییر دهید</p>
+        <p className="text-gray-500">فیلترهای جستجو را تغییر دهید</p>
       </div>
     );
   }
@@ -406,29 +410,31 @@ export default function QuestionTable({
                       </button>
                     )}
 
-                    {/* Edit */}
-                    <button
-                      onClick={() => onEdit(question)}
-                      className="text-green-600 hover:text-green-800 transition-colors"
-                      title="ویرایش"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(question)}
+                        className="text-green-600 hover:text-green-800 transition-colors"
+                        title="ویرایش"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    )}
 
-                    {/* Delete */}
-                    <button
-                      onClick={() => onDelete(question.id!)}
-                      className="text-red-600 hover:text-red-800 transition-colors"
-                      title="حذف"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(question.id!)}
+                        className="text-red-600 hover:text-red-800 transition-colors"
+                        title="حذف"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

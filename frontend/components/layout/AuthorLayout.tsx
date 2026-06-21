@@ -20,8 +20,6 @@ export default function AuthorLayout({ children, title }: AuthorLayoutProps) {
       if (refreshToken) {
         await logoutUser(refreshToken);
       }
-    } catch {
-      // خروج سمت کاربر باید حتی در صورت منقضی بودن توکن کامل شود.
     } finally {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
@@ -35,7 +33,7 @@ export default function AuthorLayout({ children, title }: AuthorLayoutProps) {
       <div className="min-h-screen bg-gray-50 text-right">
         <AdminHeader
           title={title || "پنل نویسنده"}
-          subtitle="مدیریت سوالات، پیگیری وضعیت بررسی و ثبت محتوای آموزشی"
+          subtitle="مدیریت سوالات و پیگیری وضعیت بررسی"
           variant="blue"
           onLogout={handleLogout}
           actions={

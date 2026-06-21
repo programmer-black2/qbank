@@ -31,8 +31,13 @@ export type UserSubscription = {
 export type SubscriptionStats = {
   total: number;
   active: number;
+  active_students?: number;
   expired: number;
   inactive: number;
+};
+
+export type ActiveSubscribedStudentsCount = {
+  active_students: number;
 };
 
 export type SubscriptionPlanPayload = {
@@ -135,6 +140,13 @@ export const getUserSubscriptions = async (params?: {
 
 export const getSubscriptionStats = async (): Promise<SubscriptionStats> => {
   const response = await api.get<SubscriptionStats>("/api/subscription/user-subscriptions/stats/");
+  return response.data;
+};
+
+export const getActiveSubscribedStudentsCount = async (): Promise<ActiveSubscribedStudentsCount> => {
+  const response = await api.get<ActiveSubscribedStudentsCount>(
+    "/api/subscription/user-subscriptions/active-students-count/",
+  );
   return response.data;
 };
 

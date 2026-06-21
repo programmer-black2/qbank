@@ -17,6 +17,7 @@ type QuestionManagementPanelProps = {
   backLabel?: string;
   showStats?: boolean;
   mode?: "admin" | "author";
+  readOnly?: boolean;
 };
 
 type CategoryStage = {
@@ -86,8 +87,10 @@ export default function QuestionManagementPanel({
   backLabel,
   showStats = true,
   mode = "admin",
+  readOnly = false,
 }: QuestionManagementPanelProps) {
   const router = useRouter();
+  const canManageQuestions = !readOnly;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionStats, setQuestionStats] = useState<QuestionStatistics | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -424,15 +427,17 @@ export default function QuestionManagementPanel({
               </div>
             </div>
 
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              سوال جدید
-            </button>
+            {canManageQuestions && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                سوال جدید
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -664,15 +669,17 @@ export default function QuestionManagementPanel({
               </button>
             </div>
 
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              سوال جدید
-            </button>
+            {canManageQuestions && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                سوال جدید
+              </button>
+            )}
           </div>
         </div>
 
@@ -685,10 +692,10 @@ export default function QuestionManagementPanel({
         <QuestionTable
           questions={questions}
           loading={loading}
-          onEdit={handleEditQuestion}
-          onDelete={handleDeleteQuestion}
+          onEdit={canManageQuestions ? handleEditQuestion : undefined}
+          onDelete={canManageQuestions ? handleDeleteQuestion : undefined}
           onView={handleViewQuestion}
-          onCopy={handleCopyQuestion}
+          onCopy={canManageQuestions ? handleCopyQuestion : undefined}
           onApprove={mode === "admin" ? handleApproveQuestion : undefined}
           onReject={mode === "admin" ? handleRejectQuestion : undefined}
         />
@@ -721,16 +728,18 @@ export default function QuestionManagementPanel({
           </div>
         </div>
 
-        <Dialog open={isModalOpen} onClose={handleModalClose} maxWidth="lg" fullWidth>
-          <DialogContent className="p-0">
-            <QuestionForm
-              question={editingQuestion || undefined}
-              onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion}
-              onCancel={handleModalClose}
-              uploadMedia={questionApi.uploadMedia}
-            />
-          </DialogContent>
-        </Dialog>
+        {canManageQuestions && (
+          <Dialog open={isModalOpen} onClose={handleModalClose} maxWidth="lg" fullWidth>
+            <DialogContent className="p-0">
+              <QuestionForm
+                question={editingQuestion || undefined}
+                onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion}
+                onCancel={handleModalClose}
+                uploadMedia={questionApi.uploadMedia}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
 
         {viewingQuestion && (
           <Dialog

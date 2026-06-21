@@ -4,20 +4,39 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/ui/AdminHeader';
 import { getCurrentUser, logoutUser } from "../../../services/auth/auth.api";
+import { getQuestionStatistics } from '@/services/question/question.api';
+import { getActiveSubscribedStudentsCount } from '@/services/subscription/subscription.api';
 
 interface AdminUser {
   full_name?: string;
 }
 
+interface DashboardStats {
+  totalQuestions: number | null;
+  activeSubscribedStudents: number | null;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<AdminUser | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalQuestions: null,
+    activeSubscribedStudents: null,
+  });
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
+      const [questionStats, activeStudentsStats] = await Promise.all([
+        getQuestionStatistics(),
+        getActiveSubscribedStudentsCount(),
+      ]);
+      setStats({
+        totalQuestions: questionStats.total_questions,
+        activeSubscribedStudents: activeStudentsStats.active_students,
+      });
     } catch {
       // اگر توکن نامعتبر بود، به صفحه لاگین برگرد
       router.push('/admin/login');
@@ -98,7 +117,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">کل سوالات</p>
-                <p className="text-2xl font-bold text-gray-900">---</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalQuestions ?? '---'}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +132,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">کاربران فعال</p>
-                <p className="text-2xl font-bold text-gray-900">---</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeSubscribedStudents ?? '---'}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

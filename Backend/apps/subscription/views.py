@@ -5,6 +5,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.accounts.models import Role
 from apps.questions.permissions import IsAdminUser
 
 from .models import SubscriptionPlan, UserSubscription
@@ -198,9 +199,33 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
                 is_active=True,
                 end_date__gt=now,
             ).count(),
+            "active_students": UserSubscription.objects.filter(
+                is_active=True,
+                end_date__gt=now,
+                user__is_active=True,
+                user__role__name_roles=Role.NameChoices.STUDENT,
+            ).values("user_id").distinct().count(),
             "expired": UserSubscription.objects.filter(end_date__lte=now).count(),
             "inactive": UserSubscription.objects.filter(is_active=False).count(),
         })
+
+    @action(detail=False, methods=["get"], url_path="active-students-count")
+    def active_students_count(self, request):
+        now = timezone.now()
+        count = (
+            UserSubscription.objects
+            .filter(
+                is_active=True,
+                end_date__gt=now,
+                user__is_active=True,
+                user__role__name_roles=Role.NameChoices.STUDENT,
+            )
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+
+        return Response({"active_students": count})
 
 
 class StudentSubscriptionViewSet(viewsets.GenericViewSet):

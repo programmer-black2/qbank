@@ -7,12 +7,13 @@ export default function AuthorQuestionsPage() {
   return (
     <RoleGuard allowedRoles={["Writer"]} loginPath="/author/login">
       <QuestionManagementPanel
-        title="پنل نویسنده - مدیریت سوالات"
-        subtitle="ثبت، ویرایش و بررسی سوالات با همان ابزار پنل ادمین"
+        title="پنل نویسنده - مشاهده سوالات"
+        subtitle="مشاهده سوالات و فیلتر بر اساس وضعیت، نوع سوال و دسته‌بندی"
         backHref="/author"
         backLabel="بازگشت به داشبورد نویسنده"
         showStats={false}
         mode="author"
+        readOnly
       />
     </RoleGuard>
   );
