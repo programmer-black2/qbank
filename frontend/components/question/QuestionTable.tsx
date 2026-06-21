@@ -8,6 +8,7 @@ interface Props {
   onEdit: (question: Question) => void;
   onDelete: (id: number) => void;
   onView: (question: Question) => void;
+  onCopy?: (question: Question) => void;
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
 }
@@ -18,6 +19,7 @@ export default function QuestionTable({
   onEdit,
   onDelete,
   onView,
+  onCopy,
   onApprove,
   onReject,
 }: Props) {
@@ -79,6 +81,77 @@ export default function QuestionTable({
     return text.substring(0, maxLength) + '...';
   };
 
+  const renderActions = (question: Question) => (
+    <div className="flex items-center gap-3">
+      {onApprove && question.workflow_status_code !== 'approved' && (
+        <button
+          onClick={() => onApprove(question.id!)}
+          className="text-emerald-600 hover:text-emerald-800 transition-colors"
+          title="ØªØ§ÛŒÛŒØ¯ Ø¨Ø±Ø§ÛŒ Ø§Ù†ØªØ´Ø§Ø±"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+      )}
+
+      {onReject && question.workflow_status_code !== 'rejected' && (
+        <button
+          onClick={() => onReject(question.id!)}
+          className="text-amber-600 hover:text-amber-800 transition-colors"
+          title="Ø±Ø¯ Ø³ÙˆØ§Ù„"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+
+      <button
+        onClick={() => onView(question)}
+        className="text-blue-600 hover:text-blue-800 transition-colors"
+        title="Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ø¬Ø²Ø¦ÛŒØ§Øª"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      </button>
+
+      {onCopy && (
+        <button
+          onClick={() => onCopy(question)}
+          className="text-indigo-600 hover:text-indigo-800 transition-colors"
+          title="Ú©Ù¾ÛŒ JSON Ø³ÙˆØ§Ù„"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </button>
+      )}
+
+      <button
+        onClick={() => onEdit(question)}
+        className="text-green-600 hover:text-green-800 transition-colors"
+        title="ÙˆÛŒØ±Ø§ÛŒØ´"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+
+      <button
+        onClick={() => onDelete(question.id!)}
+        className="text-red-600 hover:text-red-800 transition-colors"
+        title="Ø­Ø°Ù"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </button>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -115,8 +188,58 @@ export default function QuestionTable({
         </h3>
       </div>
 
+      <div className="space-y-3 p-4 md:hidden">
+        {questions.map((question) => (
+          <article key={question.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-gray-500">#{question.id}</p>
+                <p className="mt-1 line-clamp-3 text-sm font-bold leading-6 text-gray-900">
+                  {question.question_text}
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                getWorkflowStatusColor(question.workflow_status_code)
+              }`}>
+                {getWorkflowStatusLabel(question)}
+              </span>
+            </div>
+
+            <div className="mb-3 flex flex-wrap gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                question.question_type === 'mcq'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-purple-100 text-purple-800'
+              }`}>
+                {getQuestionTypeLabel(question.question_type)}
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getDifficultyColor(question.difficulty)}`}>
+                {getDifficultyLabel(question.difficulty)}
+              </span>
+            </div>
+
+            <div className="mb-4 space-y-1 text-xs font-medium text-gray-500">
+              {question.stage_name && <p>{question.stage_name}</p>}
+              {question.course_name && <p>{question.course_name}</p>}
+              {question.year_number && <p>سال {question.year_number}</p>}
+              {question.exam_type_name && (
+                <p className="text-blue-600">
+                  {question.exam_type_name === 'midterm' ? 'میان‌ترم' : 'پایان‌ترم'}
+                </p>
+              )}
+              <p>{formatDate(question.created_at)}</p>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+              <span className="text-xs font-bold text-gray-400">عملیات</span>
+              {renderActions(question)}
+            </div>
+          </article>
+        ))}
+      </div>
+
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -270,6 +393,18 @@ export default function QuestionTable({
                               d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     </button>
+
+                    {onCopy && (
+                      <button
+                        onClick={() => onCopy(question)}
+                        className="text-indigo-600 hover:text-indigo-800 transition-colors"
+                        title="کپی JSON سوال"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    )}
 
                     {/* Edit */}
                     <button

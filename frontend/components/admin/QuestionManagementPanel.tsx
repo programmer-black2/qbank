@@ -19,6 +19,66 @@ type QuestionManagementPanelProps = {
   mode?: "admin" | "author";
 };
 
+type CategoryStage = {
+  id: number;
+  name_education_stage: string;
+};
+
+type CategoryCourse = {
+  id: number;
+  name_course: string;
+};
+
+type CategoryYear = {
+  id: number;
+  years_number: number;
+};
+
+type CategoryExamType = {
+  id: number;
+  name_exam_types: string;
+};
+
+const isImageMedia = (mediaType?: string, fileUrl?: string) => {
+  if (mediaType === "image") return true;
+  return Boolean(fileUrl?.match(/\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i));
+};
+
+const fileUrlToBase64 = async (fileUrl: string) => {
+  if (!fileUrl || fileUrl.startsWith("data:")) {
+    return fileUrl;
+  }
+
+  const response = await fetch(fileUrl);
+  const blob = await response.blob();
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || fileUrl));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+const withBase64Images = async (items: Question["media_items"] = []) => {
+  return Promise.all(
+    items.map(async (item) => {
+      if (!isImageMedia(item.media_type, item.file_url)) {
+        return item;
+      }
+
+      try {
+        return {
+          ...item,
+          file_url: await fileUrlToBase64(item.file_url),
+        };
+      } catch {
+        return item;
+      }
+    })
+  );
+};
+
 export default function QuestionManagementPanel({
   title,
   subtitle,
@@ -35,13 +95,27 @@ export default function QuestionManagementPanel({
   const [viewingQuestion, setViewingQuestion] = useState<Question | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [stages, setStages] = useState<CategoryStage[]>([]);
+  const [courses, setCourses] = useState<CategoryCourse[]>([]);
+  const [years, setYears] = useState<CategoryYear[]>([]);
+  const [examTypes, setExamTypes] = useState<CategoryExamType[]>([]);
   const [filters, setFilters] = useState({
     question_type: "",
     difficulty: "",
-    exam_type: "",
+    stage_id: "",
+    course_id: "",
+    year_id: "",
+    exam_type_id: "",
     workflow_status: "",
   });
+
+  const updateFilters = (updater: (previousFilters: typeof filters) => typeof filters) => {
+    setCurrentPage(1);
+    setFilters(updater);
+  };
 
   const questionApi = useMemo(() => ({
     getQuestions: mode === "author" ? questionService.getAuthorQuestions : questionService.getQuestions,
@@ -56,10 +130,15 @@ export default function QuestionManagementPanel({
     try {
       setLoading(true);
       const params = {
+        page: currentPage,
+        page_size: 10,
         search: searchTerm || undefined,
         question_type: filters.question_type || undefined,
         difficulty: filters.difficulty || undefined,
-        exam_type: filters.exam_type ? Number(filters.exam_type) : undefined,
+        stage_id: filters.stage_id ? Number(filters.stage_id) : undefined,
+        course_id: filters.course_id ? Number(filters.course_id) : undefined,
+        year_id: filters.year_id ? Number(filters.year_id) : undefined,
+        exam_type_id: filters.exam_type_id ? Number(filters.exam_type_id) : undefined,
         workflow_status: filters.workflow_status || undefined,
       };
 
@@ -68,14 +147,22 @@ export default function QuestionManagementPanel({
         mode === "admin" && showStats ? questionService.getStatistics().catch(() => null) : Promise.resolve(null),
       ]);
 
-      setQuestions(questionsResponse.results || questionsResponse);
+      const responseResults = Array.isArray(questionsResponse)
+        ? questionsResponse
+        : questionsResponse.results || [];
+      const responseCount = Array.isArray(questionsResponse)
+        ? questionsResponse.length
+        : questionsResponse.count || responseResults.length;
+
+      setQuestions(responseResults);
+      setTotalQuestions(responseCount);
       setQuestionStats(statsData);
     } catch (error) {
       console.error("Error loading questions:", error);
     } finally {
       setLoading(false);
     }
-  }, [filters, mode, questionApi, searchTerm, showStats]);
+  }, [currentPage, filters, mode, questionApi, searchTerm, showStats]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -84,6 +171,19 @@ export default function QuestionManagementPanel({
 
     return () => window.clearTimeout(timeoutId);
   }, [loadQuestions]);
+
+  useEffect(() => {
+    const loadStages = async () => {
+      try {
+        const data = await questionService.getStages();
+        setStages(data);
+      } catch (error) {
+        console.error("Error loading stages:", error);
+      }
+    };
+
+    loadStages();
+  }, []);
 
   const handleCreateQuestion = async (questionData: Question) => {
     await questionApi.createQuestion(questionData);
@@ -156,19 +256,113 @@ export default function QuestionManagementPanel({
     setViewingQuestion(questionDetail);
   };
 
+  const handleCopyQuestion = async (question: Question) => {
+    const questionDetail = await loadQuestionDetail(question);
+
+    if (!questionDetail) return;
+
+    const questionMedia = questionDetail.media_items || questionDetail.question_media || [];
+    const answerMedia = questionDetail.answer_media_items || questionDetail.answer_media || [];
+    const copyData = {
+      question_text: questionDetail.question_text,
+      question_type: questionDetail.question_type,
+      difficulty: questionDetail.difficulty,
+      exam_type_id: questionDetail.exam_type_id,
+      exam_type_detail: questionDetail.exam_type_detail,
+      choices: questionDetail.choices || [],
+      answer: questionDetail.answer,
+      question_media: await withBase64Images(questionMedia),
+      answer_media: await withBase64Images(answerMedia),
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(copyData, null, 2));
+      alert("JSON سوال در کلیپ‌بورد کپی شد.");
+    } catch {
+      alert("مرورگر اجازه کپی در کلیپ‌بورد را نداد.");
+    }
+  };
+
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingQuestion(null);
   };
 
   const clearFilters = () => {
+    setCurrentPage(1);
     setSearchTerm("");
+    setCourses([]);
+    setYears([]);
+    setExamTypes([]);
     setFilters({
       question_type: "",
       difficulty: "",
-      exam_type: "",
+      stage_id: "",
+      course_id: "",
+      year_id: "",
+      exam_type_id: "",
       workflow_status: "",
     });
+  };
+
+  const handleStageFilterChange = async (stageId: string) => {
+    updateFilters((prev) => ({
+      ...prev,
+      stage_id: stageId,
+      course_id: "",
+      year_id: "",
+      exam_type_id: "",
+    }));
+    setCourses([]);
+    setYears([]);
+    setExamTypes([]);
+
+    if (!stageId) return;
+
+    try {
+      const data = await questionService.getCourses(Number(stageId));
+      setCourses(data);
+    } catch (error) {
+      console.error("Error loading courses:", error);
+    }
+  };
+
+  const handleCourseFilterChange = async (courseId: string) => {
+    updateFilters((prev) => ({
+      ...prev,
+      course_id: courseId,
+      year_id: "",
+      exam_type_id: "",
+    }));
+    setYears([]);
+    setExamTypes([]);
+
+    if (!courseId) return;
+
+    try {
+      const data = await questionService.getYears(Number(courseId));
+      setYears(data);
+    } catch (error) {
+      console.error("Error loading years:", error);
+    }
+  };
+
+  const handleYearFilterChange = async (yearId: string) => {
+    updateFilters((prev) => ({
+      ...prev,
+      year_id: yearId,
+      exam_type_id: "",
+    }));
+    setExamTypes([]);
+
+    if (!yearId) return;
+
+    try {
+      const data = await questionService.getExamTypes(Number(yearId));
+      setExamTypes(data);
+    } catch (error) {
+      console.error("Error loading exam types:", error);
+    }
   };
 
   const handleAuthorLogout = async () => {
@@ -207,7 +401,151 @@ export default function QuestionManagementPanel({
           </div>
         )}
 
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <label className="mb-1.5 block text-xs font-bold text-gray-500">جستجو</label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="جستجو در متن سوال یا شناسه..."
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setSearchTerm(event.target.value);
+                  }}
+                  className="block h-11 w-full rounded-lg border border-gray-300 bg-white pl-3 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 sm:w-auto"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              سوال جدید
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-bold text-gray-500">فیلترهای سوال</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <select
+                  value={filters.question_type}
+                  onChange={(event) => updateFilters((prev) => ({ ...prev, question_type: event.target.value }))}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">همه انواع</option>
+                  <option value="mcq">چند گزینه‌ای</option>
+                  <option value="descriptive">تشریحی</option>
+                </select>
+
+                <select
+                  value={filters.difficulty}
+                  onChange={(event) => updateFilters((prev) => ({ ...prev, difficulty: event.target.value }))}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">همه سطوح</option>
+                  <option value="easy">آسان</option>
+                  <option value="medium">متوسط</option>
+                  <option value="hard">سخت</option>
+                  <option value="unknown">نامشخص</option>
+                </select>
+
+                <select
+                  value={filters.workflow_status}
+                  onChange={(event) => updateFilters((prev) => ({ ...prev, workflow_status: event.target.value }))}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">همه وضعیت‌ها</option>
+                  <option value="pending">در انتظار تایید</option>
+                  <option value="approved">تایید شده</option>
+                  <option value="rejected">رد شده</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-bold text-gray-500">فیلتر دسته‌بندی</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <select
+                  value={filters.stage_id}
+                  onChange={(event) => handleStageFilterChange(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">همه مقاطع</option>
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name_education_stage}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filters.course_id}
+                  onChange={(event) => handleCourseFilterChange(event.target.value)}
+                  disabled={!filters.stage_id || !courses.length}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">همه دوره‌ها</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name_course}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filters.year_id}
+                  onChange={(event) => handleYearFilterChange(event.target.value)}
+                  disabled={!filters.course_id || !years.length}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">همه سال‌ها</option>
+                  {years.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      سال {year.years_number}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filters.exam_type_id}
+                  onChange={(event) => updateFilters((prev) => ({ ...prev, exam_type_id: event.target.value }))}
+                  disabled={!filters.year_id || !examTypes.length}
+                  className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">همه آزمون‌ها</option>
+                  {examTypes.map((examType) => (
+                    <option key={examType.id} value={examType.id}>
+                      {examType.name_exam_types === "midterm" ? "میان‌ترم" : "پایان‌ترم"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={clearFilters}
+              className="h-10 w-full rounded-lg border border-gray-300 px-4 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800 sm:w-auto"
+            >
+              پاک کردن فیلترها
+            </button>
+          </div>
+        </div>
+
+        <div className="hidden">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex-1 xl:max-w-md">
               <div className="relative">
@@ -220,7 +558,10 @@ export default function QuestionManagementPanel({
                   type="text"
                   placeholder="جستجو در سوالات..."
                   value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setSearchTerm(event.target.value);
+                  }}
                   className="block w-full rounded-lg border border-gray-300 py-2 pl-3 pr-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -229,7 +570,7 @@ export default function QuestionManagementPanel({
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <select
                 value={filters.question_type}
-                onChange={(event) => setFilters((prev) => ({ ...prev, question_type: event.target.value }))}
+                onChange={(event) => updateFilters((prev) => ({ ...prev, question_type: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto"
               >
                 <option value="">همه انواع</option>
@@ -239,7 +580,7 @@ export default function QuestionManagementPanel({
 
               <select
                 value={filters.difficulty}
-                onChange={(event) => setFilters((prev) => ({ ...prev, difficulty: event.target.value }))}
+                onChange={(event) => updateFilters((prev) => ({ ...prev, difficulty: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto"
               >
                 <option value="">همه سطوح</option>
@@ -250,8 +591,63 @@ export default function QuestionManagementPanel({
               </select>
 
               <select
+                value={filters.stage_id}
+                onChange={(event) => handleStageFilterChange(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto"
+              >
+                <option value="">همه مقاطع</option>
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.name_education_stage}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filters.course_id}
+                onChange={(event) => handleCourseFilterChange(event.target.value)}
+                disabled={!filters.stage_id || !courses.length}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:w-auto"
+              >
+                <option value="">همه دوره‌ها</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.name_course}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filters.year_id}
+                onChange={(event) => handleYearFilterChange(event.target.value)}
+                disabled={!filters.course_id || !years.length}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:w-auto"
+              >
+                <option value="">همه سال‌ها</option>
+                {years.map((year) => (
+                  <option key={year.id} value={year.id}>
+                    سال {year.years_number}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filters.exam_type_id}
+                onChange={(event) => updateFilters((prev) => ({ ...prev, exam_type_id: event.target.value }))}
+                disabled={!filters.year_id || !examTypes.length}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:w-auto"
+              >
+                <option value="">همه آزمون‌ها</option>
+                {examTypes.map((examType) => (
+                  <option key={examType.id} value={examType.id}>
+                    {examType.name_exam_types === "midterm" ? "میان‌ترم" : "پایان‌ترم"}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={filters.workflow_status}
-                onChange={(event) => setFilters((prev) => ({ ...prev, workflow_status: event.target.value }))}
+                onChange={(event) => updateFilters((prev) => ({ ...prev, workflow_status: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:w-auto"
               >
                 <option value="">همه وضعیت‌ها</option>
@@ -292,9 +688,38 @@ export default function QuestionManagementPanel({
           onEdit={handleEditQuestion}
           onDelete={handleDeleteQuestion}
           onView={handleViewQuestion}
+          onCopy={handleCopyQuestion}
           onApprove={mode === "admin" ? handleApproveQuestion : undefined}
           onReject={mode === "admin" ? handleRejectQuestion : undefined}
         />
+
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="font-medium text-gray-600">
+            نمایش {questions.length} سوال از {totalQuestions} مورد
+          </div>
+
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1 || loading}
+              className="rounded-lg border border-gray-300 px-4 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              قبلی
+            </button>
+            <span className="min-w-20 text-center font-bold text-gray-800">
+              صفحه {currentPage}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => page + 1)}
+              disabled={loading || currentPage * 10 >= totalQuestions}
+              className="rounded-lg border border-gray-300 px-4 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              بعدی
+            </button>
+          </div>
+        </div>
 
         <Dialog open={isModalOpen} onClose={handleModalClose} maxWidth="lg" fullWidth>
           <DialogContent className="p-0">
@@ -380,6 +805,16 @@ export default function QuestionManagementPanel({
                   </div>
                 )}
 
+                <QuestionMediaPreview
+                  title="فایل‌ها و تصاویر سوال"
+                  items={viewingQuestion.media_items || viewingQuestion.question_media || []}
+                />
+
+                <QuestionMediaPreview
+                  title="فایل‌ها و تصاویر پاسخ"
+                  items={viewingQuestion.answer_media_items || viewingQuestion.answer_media || []}
+                />
+
                 {viewingQuestion.status_history && viewingQuestion.status_history.length > 0 && (
                   <div>
                     <label className="text-sm font-medium text-gray-700">تاریخچه وضعیت:</label>
@@ -454,6 +889,54 @@ function DetailItem({ label, value }: { label: string; value?: string | number }
     <div>
       <label className="text-sm font-medium text-gray-700">{label}:</label>
       <p className="mt-1 text-gray-900">{value || "-"}</p>
+    </div>
+  );
+}
+
+function QuestionMediaPreview({
+  title,
+  items,
+}: {
+  title: string;
+  items: NonNullable<Question["media_items"]>;
+}) {
+  const visibleItems = items.filter((item) => item.file_url);
+
+  if (!visibleItems.length) {
+    return null;
+  }
+
+  return (
+    <div>
+      <label className="text-sm font-medium text-gray-700">{title}:</label>
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {visibleItems.map((item, index) => (
+          <div key={item.id || `${item.file_url}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            {isImageMedia(item.media_type, item.file_url) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.file_url}
+                alt={item.alt_text || item.original_file_name || title}
+                className="max-h-72 w-full rounded-lg object-contain bg-white"
+              />
+            ) : (
+              <a
+                href={item.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-bold text-blue-600 hover:text-blue-800"
+              >
+                {item.original_file_name || "مشاهده فایل"}
+              </a>
+            )}
+            {(item.alt_text || item.original_file_name) && (
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                {item.alt_text || item.original_file_name}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

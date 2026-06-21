@@ -43,6 +43,20 @@ interface FormData {
   answer_media: QuestionMedia[];
 }
 
+interface QuestionFormDraftDefaults {
+  selectedStage: number | '';
+  selectedCourse: number | '';
+  selectedYear: number | '';
+  exam_type_id: number;
+  question_type: 'mcq' | 'descriptive';
+  difficulty: 'easy' | 'medium' | 'hard' | 'unknown';
+}
+
+type CopiedQuestionData = Partial<FormData & Question & QuestionFormDraftDefaults>;
+
+const QUESTION_FORM_DEFAULTS_STORAGE_KEY = 'qbank:question-form:last-repeated-fields';
+const QUESTION_FORM_AUTOSAVE_STORAGE_KEY = 'qbank:question-form:autosave-draft';
+
 const mediaTypeOptions: Array<{ value: QuestionMedia['media_type']; label: string }> = [
   { value: 'image', label: 'تصویر' },
   { value: 'audio', label: 'صدا' },
@@ -76,6 +90,131 @@ const filterMediaItems = (items: QuestionMedia[] = []) =>
       alt_text: item.alt_text?.trim() || undefined,
     }));
 
+const parseSelectId = (value: string): number | '' => {
+  return value ? Number(value) : '';
+};
+
+const getStoredDraftDefaults = (): QuestionFormDraftDefaults | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const storedValue = window.localStorage.getItem(QUESTION_FORM_DEFAULTS_STORAGE_KEY);
+    if (!storedValue) return null;
+
+    const parsedValue = JSON.parse(storedValue) as Partial<QuestionFormDraftDefaults>;
+    const hasCategoryPath = Boolean(
+      parsedValue.selectedStage &&
+      parsedValue.selectedCourse &&
+      parsedValue.selectedYear &&
+      parsedValue.exam_type_id
+    );
+
+    if (!hasCategoryPath || !parsedValue.question_type || !parsedValue.difficulty) {
+      return null;
+    }
+
+    return {
+      selectedStage: Number(parsedValue.selectedStage),
+      selectedCourse: Number(parsedValue.selectedCourse),
+      selectedYear: Number(parsedValue.selectedYear),
+      exam_type_id: Number(parsedValue.exam_type_id),
+      question_type: parsedValue.question_type,
+      difficulty: parsedValue.difficulty,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredDraftDefaults = (defaults: QuestionFormDraftDefaults) => {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.setItem(
+    QUESTION_FORM_DEFAULTS_STORAGE_KEY,
+    JSON.stringify(defaults)
+  );
+};
+
+const getStoredAutosaveDraft = (): CopiedQuestionData | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const storedValue = window.localStorage.getItem(QUESTION_FORM_AUTOSAVE_STORAGE_KEY);
+    return storedValue ? JSON.parse(storedValue) as CopiedQuestionData : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveAutosaveDraft = (draft: CopiedQuestionData) => {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.setItem(QUESTION_FORM_AUTOSAVE_STORAGE_KEY, JSON.stringify(draft));
+};
+
+const clearAutosaveDraft = () => {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.removeItem(QUESTION_FORM_AUTOSAVE_STORAGE_KEY);
+};
+
+const getInitialChoices = (): QuestionChoice[] => [
+  { option_text: '', option_number: 1, is_correct: false },
+  { option_text: '', option_number: 2, is_correct: false },
+  { option_text: '', option_number: 3, is_correct: false },
+  { option_text: '', option_number: 4, is_correct: false },
+];
+
+const normalizeChoices = (choices?: QuestionChoice[]) => {
+  const nextChoices = choices?.length ? choices : getInitialChoices();
+
+  return nextChoices.map((choice, index) => ({
+    option_text: choice.option_text || '',
+    option_number: index + 1,
+    is_correct: Boolean(choice.is_correct),
+  }));
+};
+
+const isImageMedia = (mediaType?: string, fileUrl?: string) => {
+  if (mediaType === 'image') return true;
+  return Boolean(fileUrl?.match(/\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i));
+};
+
+const fileUrlToBase64 = async (fileUrl: string) => {
+  if (!fileUrl || fileUrl.startsWith('data:')) {
+    return fileUrl;
+  }
+
+  const response = await fetch(fileUrl);
+  const blob = await response.blob();
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || fileUrl));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+const withBase64Images = async (items: QuestionMedia[] = []) => {
+  return Promise.all(
+    items.map(async (item) => {
+      if (!isImageMedia(item.media_type, item.file_url)) {
+        return item;
+      }
+
+      try {
+        return {
+          ...item,
+          file_url: await fileUrlToBase64(item.file_url),
+        };
+      } catch {
+        return item;
+      }
+    })
+  );
+};
+
 const getErrorMessage = (error: unknown) => {
   if (typeof error === 'object' && error !== null && 'response' in error) {
     const response = (error as { response?: { data?: { message?: string; detail?: string } } }).response;
@@ -91,35 +230,44 @@ export default function QuestionForm({
   onCancel,
   uploadMedia = questionService.uploadQuestionMedia,
 }: Props) {
+  const [storedDraftDefaults] = useState<QuestionFormDraftDefaults | null>(() => (
+    !question ? getStoredDraftDefaults() : null
+  ));
+  const [storedAutosaveDraft] = useState<CopiedQuestionData | null>(() => (
+    !question ? getStoredAutosaveDraft() : null
+  ));
   const [loading, setLoading] = useState(false);
   const [uploadingMediaKey, setUploadingMediaKey] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [clipboardMessage, setClipboardMessage] = useState('');
   const [stages, setStages] = useState<CategoryStage[]>([]);
   const [courses, setCourses] = useState<CategoryCourse[]>([]);
   const [years, setYears] = useState<CategoryYear[]>([]);
   const [examTypes, setExamTypes] = useState<CategoryExamType[]>([]);
+  const [pastedCategoryNote, setPastedCategoryNote] = useState('');
   
-  const [selectedStage, setSelectedStage] = useState<number | ''>('');
-  const [selectedCourse, setSelectedCourse] = useState<number | ''>('');
-  const [selectedYear, setSelectedYear] = useState<number | ''>('');
+  const [selectedStage, setSelectedStage] = useState<number | ''>(
+    Number(storedDraftDefaults?.selectedStage) || ''
+  );
+  const [selectedCourse, setSelectedCourse] = useState<number | ''>(
+    Number(storedDraftDefaults?.selectedCourse) || ''
+  );
+  const [selectedYear, setSelectedYear] = useState<number | ''>(
+    Number(storedDraftDefaults?.selectedYear) || ''
+  );
   const [correctChoiceIndex, setCorrectChoiceIndex] = useState(() => {
     const initialIndex = question?.choices?.findIndex((choice) => choice.is_correct) ?? -1;
     return initialIndex >= 0 ? initialIndex : null;
   });
 
-  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, setValue, getValues, reset, formState: { errors } } = useForm<FormData>({
     defaultValues: {
-      question_text: question?.question_text || '',
-      question_type: question?.question_type || 'mcq',
-      difficulty: question?.difficulty || 'medium',
-      exam_type_id: question?.exam_type_id || 0,
-      choices: question?.choices || [
-        { option_text: '', option_number: 1, is_correct: false },
-        { option_text: '', option_number: 2, is_correct: false },
-        { option_text: '', option_number: 3, is_correct: false },
-        { option_text: '', option_number: 4, is_correct: false },
-      ],
-      answer: question?.answer || { descriptive_answer_text: '' },
+      question_text: question?.question_text || storedAutosaveDraft?.question_text || '',
+      question_type: question?.question_type || storedDraftDefaults?.question_type || 'mcq',
+      difficulty: question?.difficulty || storedDraftDefaults?.difficulty || 'medium',
+      exam_type_id: question?.exam_type_id || Number(storedDraftDefaults?.exam_type_id) || 0,
+      choices: question?.choices || normalizeChoices(storedAutosaveDraft?.choices) || getInitialChoices(),
+      answer: question?.answer || storedAutosaveDraft?.answer || { descriptive_answer_text: '' },
       question_media: question?.media_items || question?.question_media || [],
       answer_media: question?.answer_media_items || question?.answer_media || [],
     }
@@ -149,8 +297,10 @@ export default function QuestionForm({
   });
 
   const questionType = useWatch({ control, name: 'question_type' });
+  const selectedExamTypeId = useWatch({ control, name: 'exam_type_id' });
   const watchedQuestionMedia = useWatch({ control, name: 'question_media' });
   const watchedAnswerMedia = useWatch({ control, name: 'answer_media' });
+  const watchedFormValues = useWatch({ control });
 
   const loadStages = useCallback(async () => {
     try {
@@ -168,23 +318,70 @@ export default function QuestionForm({
   }, [setValue]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      loadStages();
+    const timeoutId = window.setTimeout(async () => {
+      await loadStages();
+
       if (question) {
         loadCategoriesFromExamType(question.exam_type_id);
+        return;
+      }
+
+      const storedCategoryDefaults = storedDraftDefaults;
+
+      if (!storedCategoryDefaults) return;
+
+      try {
+        const coursesData = await questionService.getCourses(Number(storedCategoryDefaults.selectedStage));
+        setCourses(coursesData);
+
+        const yearsData = await questionService.getYears(Number(storedCategoryDefaults.selectedCourse));
+        setYears(yearsData);
+
+        const examTypesData = await questionService.getExamTypes(Number(storedCategoryDefaults.selectedYear));
+        setExamTypes(examTypesData);
+        setValue('exam_type_id', Number(storedCategoryDefaults.exam_type_id || 0));
+      } catch (error) {
+        console.error('Error loading stored category defaults:', error);
       }
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loadCategoriesFromExamType, loadStages, question]);
+  }, [loadCategoriesFromExamType, loadStages, question, setValue, storedDraftDefaults]);
 
-  const handleStageChange = async (stageId: number) => {
+  useEffect(() => {
+    if (question) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const currentValues = getValues();
+
+      const hasDraftContent = Boolean(
+        currentValues.question_text?.trim() ||
+        currentValues.answer?.descriptive_answer_text?.trim() ||
+        currentValues.choices?.some((choice) => choice.option_text?.trim())
+      );
+
+      if (!hasDraftContent) {
+        return;
+      }
+
+      saveAutosaveDraft({
+        question_text: currentValues.question_text,
+        choices: normalizeChoices(currentValues.choices),
+        answer: currentValues.answer,
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [getValues, question, watchedFormValues]);
+
+  const handleStageChange = async (stageId: number | '') => {
     setSelectedStage(stageId);
     setSelectedCourse('');
     setSelectedYear('');
     setCourses([]);
     setYears([]);
     setExamTypes([]);
+    setPastedCategoryNote('');
     setValue('exam_type_id', 0);
 
     if (stageId) {
@@ -197,11 +394,12 @@ export default function QuestionForm({
     }
   };
 
-  const handleCourseChange = async (courseId: number) => {
+  const handleCourseChange = async (courseId: number | '') => {
     setSelectedCourse(courseId);
     setSelectedYear('');
     setYears([]);
     setExamTypes([]);
+    setPastedCategoryNote('');
     setValue('exam_type_id', 0);
 
     if (courseId) {
@@ -214,9 +412,10 @@ export default function QuestionForm({
     }
   };
 
-  const handleYearChange = async (yearId: number) => {
+  const handleYearChange = async (yearId: number | '') => {
     setSelectedYear(yearId);
     setExamTypes([]);
+    setPastedCategoryNote('');
     setValue('exam_type_id', 0);
 
     if (yearId) {
@@ -226,6 +425,102 @@ export default function QuestionForm({
       } catch (error) {
         console.error('Error loading exam types:', error);
       }
+    }
+  };
+
+  const buildClipboardPayload = async (data: FormData): Promise<CopiedQuestionData> => ({
+    question_text: data.question_text,
+    question_type: data.question_type,
+    difficulty: data.difficulty,
+    selectedStage,
+    selectedCourse,
+    selectedYear,
+    exam_type_id: Number(data.exam_type_id),
+    choices: normalizeChoices(data.choices),
+    answer: data.answer?.descriptive_answer_text?.trim()
+      ? { descriptive_answer_text: data.answer.descriptive_answer_text }
+      : undefined,
+    question_media: await withBase64Images(filterMediaItems(data.question_media)),
+    answer_media: await withBase64Images(filterMediaItems(data.answer_media)),
+  });
+
+  const handleCopyFormJson = async () => {
+    try {
+      const payload = await buildClipboardPayload(getValues());
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setError('');
+      setClipboardMessage('JSON سوال در کلیپ‌بورد کپی شد.');
+    } catch {
+      setClipboardMessage('');
+      setError('مرورگر اجازه کپی در کلیپ‌بورد را نداد.');
+    }
+  };
+
+  const loadPastedCategoryPath = async (data: CopiedQuestionData) => {
+    const hasCategoryPath = Boolean(data.selectedStage && data.selectedCourse && data.selectedYear);
+
+    if (!hasCategoryPath) {
+      setSelectedStage('');
+      setSelectedCourse('');
+      setSelectedYear('');
+      setCourses([]);
+      setYears([]);
+      setExamTypes([]);
+      setPastedCategoryNote(
+        data.exam_type_id
+          ? 'دسته‌بندی از JSON اعمال شد. برای تغییر دسته‌بندی، مقطع را دوباره انتخاب کنید.'
+          : ''
+      );
+      return;
+    }
+
+    const nextStage = Number(data.selectedStage);
+    const nextCourse = Number(data.selectedCourse);
+    const nextYear = Number(data.selectedYear);
+
+    setSelectedStage(nextStage);
+    setSelectedCourse(nextCourse);
+    setSelectedYear(nextYear);
+    setPastedCategoryNote('');
+
+    const coursesData = await questionService.getCourses(nextStage);
+    setCourses(coursesData);
+
+    const yearsData = await questionService.getYears(nextCourse);
+    setYears(yearsData);
+
+    const examTypesData = await questionService.getExamTypes(nextYear);
+    setExamTypes(examTypesData);
+  };
+
+  const handlePasteQuestionJson = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      const parsedData = JSON.parse(clipboardText) as CopiedQuestionData;
+      const nextQuestionType = parsedData.question_type === 'descriptive' ? 'descriptive' : 'mcq';
+      const nextDifficulty = ['easy', 'medium', 'hard', 'unknown'].includes(parsedData.difficulty || '')
+        ? parsedData.difficulty as FormData['difficulty']
+        : 'medium';
+      const nextChoices = normalizeChoices(parsedData.choices);
+      const correctIndex = nextChoices.findIndex((choice) => choice.is_correct);
+
+      reset({
+        question_text: parsedData.question_text || '',
+        question_type: nextQuestionType,
+        difficulty: nextDifficulty,
+        exam_type_id: Number(parsedData.exam_type_id || 0),
+        choices: nextChoices,
+        answer: parsedData.answer || { descriptive_answer_text: '' },
+        question_media: parsedData.question_media || parsedData.media_items || [],
+        answer_media: parsedData.answer_media || parsedData.answer_media_items || [],
+      });
+      setCorrectChoiceIndex(correctIndex >= 0 ? correctIndex : null);
+      await loadPastedCategoryPath(parsedData);
+      setError('');
+      setClipboardMessage('JSON سوال داخل فرم اعمال شد.');
+    } catch {
+      setClipboardMessage('');
+      setError('JSON موجود در کلیپ‌بورد معتبر نیست یا مرورگر اجازه Paste نداد.');
     }
   };
 
@@ -288,11 +583,30 @@ export default function QuestionForm({
       }
 
       await onSubmit(submitData);
+
+      if (!question) {
+        saveStoredDraftDefaults({
+          selectedStage,
+          selectedCourse,
+          selectedYear,
+          exam_type_id: Number(data.exam_type_id),
+          question_type: data.question_type,
+          difficulty: data.difficulty,
+        });
+      }
     } catch (error: unknown) {
       setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (!question) {
+      clearAutosaveDraft();
+    }
+
+    onCancel();
   };
 
   const addChoice = () => {
@@ -467,6 +781,15 @@ export default function QuestionForm({
                 </div>
               </div>
 
+              {values[index]?.file_url && isImageMedia(values[index].media_type, values[index].file_url) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={values[index].file_url}
+                  alt={values[index].alt_text || values[index].original_file_name || 'question media'}
+                  className="mt-3 max-h-56 w-full rounded-lg border border-gray-200 bg-gray-50 object-contain"
+                />
+              )}
+
               {values[index]?.file_url && (
                 <a
                   href={values[index].file_url}
@@ -493,11 +816,33 @@ export default function QuestionForm({
         <p className="text-gray-600 text-sm">
           لطفاً اطلاعات سوال را وارد کنید
         </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={handleCopyFormJson}
+            className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
+          >
+            Copy JSON
+          </button>
+          <button
+            type="button"
+            onClick={handlePasteQuestionJson}
+            className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+          >
+            Paste JSON
+          </button>
+        </div>
       </div>
 
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
+        </div>
+      )}
+
+      {clipboardMessage && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+          {clipboardMessage}
         </div>
       )}
 
@@ -584,7 +929,7 @@ export default function QuestionForm({
             {/* Stage */}
             <select
               value={selectedStage}
-              onChange={(e) => handleStageChange(Number(e.target.value))}
+              onChange={(e) => handleStageChange(parseSelectId(e.target.value))}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">انتخاب مقطع</option>
@@ -598,7 +943,7 @@ export default function QuestionForm({
             {/* Course */}
             <select
               value={selectedCourse}
-              onChange={(e) => handleCourseChange(Number(e.target.value))}
+              onChange={(e) => handleCourseChange(parseSelectId(e.target.value))}
               disabled={!courses.length}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             >
@@ -613,7 +958,7 @@ export default function QuestionForm({
             {/* Year */}
             <select
               value={selectedYear}
-              onChange={(e) => handleYearChange(Number(e.target.value))}
+              onChange={(e) => handleYearChange(parseSelectId(e.target.value))}
               disabled={!years.length}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             >
@@ -628,7 +973,7 @@ export default function QuestionForm({
             {/* Exam Type */}
             <select
               {...register('exam_type_id', { required: 'انتخاب نوع آزمون الزامی است' })}
-              disabled={!examTypes.length}
+              disabled={!examTypes.length && !selectedExamTypeId}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             >
               <option value="">انتخاب آزمون</option>
@@ -639,6 +984,11 @@ export default function QuestionForm({
               ))}
             </select>
           </div>
+          {pastedCategoryNote && (
+            <p className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">
+              {pastedCategoryNote}
+            </p>
+          )}
           {errors.exam_type_id && (
             <p className="mt-1 text-sm text-red-600">{errors.exam_type_id.message}</p>
           )}
@@ -765,7 +1115,7 @@ export default function QuestionForm({
           
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={loading || !!uploadingMediaKey}
             className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:opacity-50"
           >
