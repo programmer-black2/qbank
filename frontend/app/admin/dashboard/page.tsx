@@ -261,20 +261,23 @@ export default function AdminDashboard() {
             </div>
 
             {/* مدیریت نوع اشتراک */}
-            <div className="group bg-gradient-to-r from-cyan-50 to-cyan-100 rounded-xl p-6 text-right border border-cyan-200 opacity-50 cursor-not-allowed">
+            <button
+              onClick={() => router.push('/admin/subscriptions')}
+              className="group bg-gradient-to-r from-cyan-50 to-cyan-100 hover:from-cyan-100 hover:to-cyan-200 rounded-xl p-6 text-right transition-all duration-200 border border-cyan-200 hover:border-cyan-300"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-cyan-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-cyan-500 group-hover:bg-cyan-600 rounded-lg flex items-center justify-center transition-colors">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 9v1m8-5a8 8 0 11-16 0 8 8 0 0116 0z" />
                   </svg>
                 </div>
-                <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-cyan-500 group-hover:text-cyan-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </div>
               <h4 className="text-lg font-semibold text-gray-900 mb-2">مدیریت نوع اشتراک</h4>
-              <p className="text-sm text-gray-600">بزودی...</p>
-            </div>
+              <p className="text-sm text-gray-600">ساخت، ویرایش و کنترل پلن‌ها و اشتراک کاربران</p>
+            </button>
 
             {/* مدیریت و دسترسی طراح سوالات */}
             {/* <div className="group bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl p-6 text-right border border-indigo-200 opacity-50 cursor-not-allowed">
