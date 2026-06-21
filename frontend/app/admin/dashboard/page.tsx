@@ -244,21 +244,24 @@ export default function AdminDashboard() {
             </button>
 
             {/* گزارش‌ها */}
-            <div className="group bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 text-right border border-orange-200 opacity-50 cursor-not-allowed">
+            <button
+              onClick={() => router.push('/admin/reports')}
+              className="group bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 rounded-xl p-6 text-right transition-all duration-200 border border-orange-200 hover:border-orange-300"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-orange-500 group-hover:bg-orange-600 rounded-lg flex items-center justify-center transition-colors">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-orange-500 group-hover:text-orange-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </div>
               <h4 className="text-lg font-semibold text-gray-900 mb-2">گزارش‌ها و آمار</h4>
-              <p className="text-sm text-gray-600">بزودی...</p>
-            </div>
+              <p className="text-sm text-gray-600">ورود به مرکز گزارش‌های مدیریتی</p>
+            </button>
 
             {/* مدیریت نوع اشتراک */}
             <button
@@ -296,20 +299,23 @@ export default function AdminDashboard() {
             </div> */}
 
             {/* گزارش کاربران برای سوالات */}
-            <div className="group bg-gradient-to-r from-rose-50 to-rose-100 rounded-xl p-6 text-right border border-rose-200 opacity-50 cursor-not-allowed">
+            <button
+              onClick={() => router.push('/admin/question-reports')}
+              className="group bg-gradient-to-r from-rose-50 to-rose-100 hover:from-rose-100 hover:to-rose-200 rounded-xl p-6 text-right transition-all duration-200 border border-rose-200 hover:border-rose-300"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-rose-500 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-rose-500 group-hover:bg-rose-600 rounded-lg flex items-center justify-center transition-colors">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.008v.008H12V16.5zm8.25 2.25H3.75L12 4.5l8.25 14.25z" />
                   </svg>
                 </div>
-                <svg className="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-rose-500 group-hover:text-rose-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </div>
               <h4 className="text-lg font-semibold text-gray-900 mb-2">گزارش کاربران برای سوالات</h4>
-              <p className="text-sm text-gray-600">بزودی...</p>
-            </div>
+              <p className="text-sm text-gray-600">بررسی، جستجو و تغییر وضعیت گزارش‌های ثبت‌شده</p>
+            </button>
 
             {/* مدیریت آزمون‌ها */}
             <div className="group bg-gradient-to-r from-teal-50 to-teal-100 rounded-xl p-6 text-right border border-teal-200 opacity-50 cursor-not-allowed">

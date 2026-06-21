@@ -122,6 +122,28 @@ export interface AuthorDashboardResponse {
   notifications: AuthorNotification[];
 }
 
+export interface QuestionReport {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_phone: string;
+  question_id: number;
+  question_text: string;
+  question_type: 'mcq' | 'descriptive' | string;
+  difficulty: 'easy' | 'medium' | 'hard' | 'unknown' | string;
+  message: string;
+  status: 'pending' | 'resolved';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuestionReportListResponse {
+  count?: number;
+  next?: string | null;
+  previous?: string | null;
+  results?: QuestionReport[];
+}
+
 // ================= QUESTION CRUD =================
 
 export const getQuestions = async (params?: {
@@ -351,6 +373,43 @@ export const approveQuestion = async (id: number, note?: string): Promise<Questi
 
 export const rejectQuestion = async (id: number, note?: string): Promise<Question> => {
   const response = await api.post(`/api/questions/questions/${id}/reject/`, { note });
+  return response.data;
+};
+
+// ================= QUESTION REPORTS =================
+
+export const getQuestionReports = async (params?: {
+  search?: string;
+  status?: 'pending' | 'resolved' | '';
+  question_id?: number | '';
+  user_id?: number | '';
+  ordering?: string;
+}): Promise<QuestionReport[]> => {
+  const response = await api.get<QuestionReport[] | QuestionReportListResponse>(
+    "/api/questions/reports/",
+    { params },
+  );
+
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+
+  return response.data.results || [];
+};
+
+export const getQuestionReport = async (id: number): Promise<QuestionReport> => {
+  const response = await api.get<QuestionReport>(`/api/questions/reports/${id}/`);
+  return response.data;
+};
+
+export const updateQuestionReportStatus = async (
+  id: number,
+  status: QuestionReport['status'],
+): Promise<QuestionReport> => {
+  const response = await api.patch<QuestionReport>(`/api/questions/reports/${id}/`, {
+    status,
+  });
+
   return response.data;
 };
 

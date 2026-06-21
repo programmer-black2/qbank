@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type AdminHeaderVariant = "blue" | "green" | "purple";
+type AdminHeaderVariant = "blue" | "green" | "purple" | "red" | "orange";
 
 interface AdminHeaderProps {
   title: string;
@@ -18,6 +18,8 @@ const variantClasses: Record<AdminHeaderVariant, string> = {
   blue: "from-blue-500 to-purple-600 shadow-blue-100",
   green: "from-green-500 to-blue-600 shadow-green-100",
   purple: "from-purple-500 to-blue-600 shadow-purple-100",
+  red: "from-rose-500 to-red-600 shadow-rose-100",
+  orange: "from-orange-500 to-amber-600 shadow-orange-100",
 };
 
 function AdminHeaderIcon({ variant }: { variant: AdminHeaderVariant }) {
