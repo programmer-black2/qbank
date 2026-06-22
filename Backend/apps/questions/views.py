@@ -289,7 +289,6 @@ class QuestionViewSet(viewsets.ModelViewSet):
             'today_questions': today_questions
         })
 
-    @action(detail=True, methods=['post'], url_path='approve')
     @action(detail=False, methods=['get'], url_path='dashboard')
     def dashboard(self, request):
         queryset = self.get_queryset()
@@ -326,6 +325,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
             ],
         })
 
+    @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
         question = self.get_object()
         set_question_workflow_status(

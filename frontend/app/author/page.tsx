@@ -33,11 +33,21 @@ export default function AuthorDashboardPage() {
       const data = await questionService.getAuthorDashboard();
       setDashboard(data);
     } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+
+      if (status === 401 || status === 403) {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        localStorage.removeItem("user");
+        router.replace("/author/login");
+        return;
+      }
+
       console.error("Error loading author dashboard:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(loadDashboard, 0);

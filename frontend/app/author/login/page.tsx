@@ -36,6 +36,7 @@ export default function AuthorLoginPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,7 +54,7 @@ export default function AuthorLoginPage() {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
         localStorage.removeItem("user");
-        setError("دسترسی نویسنده مورد نیاز است");
+        setError("دسترسی نویسنده مورد نیاز است.");
         return;
       }
 
@@ -101,7 +102,7 @@ export default function AuthorLoginPage() {
                   phone_or_email: event.target.value,
                 }))
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-300 focus:bg-white"
+              className="auth-input w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-300 focus:bg-white"
               dir="ltr"
               required
             />
@@ -111,19 +112,42 @@ export default function AuthorLoginPage() {
             <span className="mb-2 block text-xs font-bold text-slate-500">
               رمز عبور
             </span>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  password: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-300 focus:bg-white"
-              dir="ltr"
-              required
-            />
+            <div className="auth-input-shell flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 focus-within:border-blue-300 focus-within:bg-white">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(event) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    password: event.target.value,
+                  }))
+                }
+                className="auth-input w-full bg-transparent py-3 text-sm outline-none"
+                dir="ltr"
+                required
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "مخفی کردن رمز عبور" : "نمایش رمز عبور"}
+                onClick={() => setShowPassword((value) => !value)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.5-6.75 9.75-6.75S21.75 12 21.75 12 18.25 18.75 12 18.75 2.25 12 2.25 12Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  {!showPassword && (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5 19.5 4.5" />
+                  )}
+                </svg>
+              </button>
+            </div>
           </label>
         </div>
 
