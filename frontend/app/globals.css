@@ -18,6 +18,14 @@
   select {
     font: inherit;
   }
+
+  input.auth-input:-webkit-autofill,
+  input.auth-input:-webkit-autofill:hover,
+  input.auth-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgb(51 65 85);
+    box-shadow: 0 0 0 1000px rgb(248 250 252) inset;
+    transition: background-color 9999s ease-out 0s;
+  }
 }
 
 /* Custom Animations */

@@ -1,4 +1,4 @@
-import api from "@/lib/axios";
+import api, { PublicRequestConfig } from "@/lib/axios";
 
 // ================= INTERFACES =================
 
@@ -58,10 +58,14 @@ export interface BreadcrumbItem {
   type: string;
 }
 
+const publicRequestConfig: PublicRequestConfig = {
+  _skipAuth: true,
+};
+
 // ================= EDUCATION STAGES =================
 
 export const getEducationStages = async (): Promise<EducationStage[]> => {
-  const response = await api.get("/api/core/education-stages/");
+  const response = await api.get("/api/core/education-stages/", publicRequestConfig);
   return response.data;
 };
 
@@ -97,7 +101,7 @@ export const deleteEducationStage = async (id: number): Promise<void> => {
 // ================= COURSES =================
 
 export const getCourses = async (): Promise<Course[]> => {
-  const response = await api.get("/api/core/courses/");
+  const response = await api.get("/api/core/courses/", publicRequestConfig);
   return response.data;
 };
 
@@ -146,7 +150,7 @@ export const deleteCourse = async (id: number): Promise<void> => {
 // ================= YEARS =================
 
 export const getYears = async (): Promise<Year[]> => {
-  const response = await api.get("/api/core/years/");
+  const response = await api.get("/api/core/years/", publicRequestConfig);
   return response.data;
 };
 
@@ -182,7 +186,7 @@ export const deleteYear = async (id: number): Promise<void> => {
 // ================= EXAM TYPES =================
 
 export const getExamTypes = async (): Promise<ExamType[]> => {
-  const response = await api.get("/api/core/exam-types/");
+  const response = await api.get("/api/core/exam-types/", publicRequestConfig);
   return response.data;
 };
 
@@ -218,7 +222,7 @@ export const deleteExamType = async (id: number): Promise<void> => {
 // ================= CATEGORY TREE =================
 
 export const getCategoryTree = async (): Promise<CategoryNode[]> => {
-  const response = await api.get("/api/core/category-tree/");
+  const response = await api.get("/api/core/category-tree/", publicRequestConfig);
   return response.data;
 };
 
@@ -229,6 +233,7 @@ export const getCategoryBreadcrumb = async (params: {
   stage_id?: number;
 }): Promise<BreadcrumbItem[]> => {
   const response = await api.get("/api/core/category-breadcrumb/", {
+    ...publicRequestConfig,
     params,
   });
   return response.data;

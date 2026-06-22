@@ -10,7 +10,7 @@ interface QuestionFormData {
   option3: string;
   option4: string;
   suggestedTime: string;
-  correctOption: string; // اصلاح شد: correctoption -> correctOption
+  correctOption: string; 
 }
 
 interface QuestionModalProps {

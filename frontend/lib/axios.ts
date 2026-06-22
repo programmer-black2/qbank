@@ -1,8 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-interface RetryableRequestConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean;
+export type PublicRequestConfig = {
   _skipAuth?: boolean;
+};
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig, PublicRequestConfig {
+  _retry?: boolean;
 }
 
 interface RefreshTokenResponse {
@@ -11,7 +14,7 @@ interface RefreshTokenResponse {
 }
 
 const api = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
   headers: {
     "Content-Type": "application/json",
   },
@@ -48,7 +51,7 @@ const requestNewAccessToken = async () => {
   }
 
   const response = await axios.post<RefreshTokenResponse>(
-    "http://localhost:8000/api/auth/refresh/",
+    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/refresh/`,
     { refresh },
     {
       headers: {

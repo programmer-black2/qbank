@@ -1,5 +1,4 @@
-import api from "@/lib/axios";
-import type { AxiosRequestConfig } from "axios";
+import api, { PublicRequestConfig } from "@/lib/axios";
 
 export type SiteStats = {
   active_users: number;
@@ -8,7 +7,7 @@ export type SiteStats = {
 };
 
 export const getSiteStats = async (): Promise<SiteStats> => {
-  const config: AxiosRequestConfig & { _skipAuth: boolean } = {
+  const config: PublicRequestConfig = {
     _skipAuth: true,
   };
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import RouteFooter from "@/components/layout/RouteFooter";
 import RouteHeader from "@/components/layout/RouteHeader";
 import './globals.css';
 
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className={`${vazirFont.className} bg-gray-50`}>
         <RouteHeader />
         <main>{children}</main>
+        <RouteFooter />
       </body>
     </html>
   );
