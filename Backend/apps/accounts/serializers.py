@@ -54,6 +54,10 @@ def hash_otp(code):
     return hashlib.sha256(str(code).encode("utf-8")).hexdigest()
 
 
+def normalize_device_name(value):
+    return str(value or "")[:120]
+
+
 def set_user_otp(user, purpose):
     code = f"{random.SystemRandom().randint(10000000, 99999999)}"
     user.otp_purpose = purpose
@@ -106,7 +110,7 @@ def validate_user_otp(user, code, purpose):
 def make_student_token_response(user, request, device_name=""):
     session_key = str(uuid.uuid4())
     user.active_student_session_key = session_key
-    user.active_device_name = device_name or ""
+    user.active_device_name = normalize_device_name(device_name)
     user.active_user_agent = request.META.get("HTTP_USER_AGENT", "")
     user.active_ip_address = get_client_ip(request)
     user.active_session_updated_at = timezone.now()
@@ -227,7 +231,7 @@ class StudentRegisterRequestOTPSerializer(serializers.Serializer):
 class StudentRegisterVerifySerializer(serializers.Serializer):
     phone = serializers.CharField()
     code = serializers.CharField(min_length=4, max_length=10)
-    device_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    device_name = serializers.CharField(required=False, allow_blank=True)
 
     def validate_phone(self, value):
         return validate_iran_mobile(value)
@@ -291,7 +295,7 @@ class StudentLoginRequestOTPSerializer(serializers.Serializer):
 class StudentLoginVerifySerializer(serializers.Serializer):
     phone = serializers.CharField()
     code = serializers.CharField(min_length=4, max_length=10)
-    device_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    device_name = serializers.CharField(required=False, allow_blank=True)
 
     def validate_phone(self, value):
         return validate_iran_mobile(value)

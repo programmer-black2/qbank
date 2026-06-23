@@ -15,6 +15,7 @@ const toEnglishDigits = (value: string) =>
 
 const normalizePhone = (value: string) => toEnglishDigits(value).trim();
 const isValidPhone = (value: string) => /^09\d{9}$/.test(value);
+const getDeviceName = () => navigator.userAgent.slice(0, 120);
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -130,7 +131,7 @@ export default function Login() {
       const response = await verifyStudentLoginOTP({
         phone: normalizePhone(formData.phone),
         code,
-        device_name: navigator.userAgent,
+        device_name: getDeviceName(),
       });
 
       localStorage.setItem("access", response.access);
@@ -139,7 +140,7 @@ export default function Login() {
       window.dispatchEvent(new Event("auth-changed"));
 
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next && !next.startsWith("/admin") ? next : "/category");
+      router.push(next && !next.startsWith("/admin") ? next : "/");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -295,7 +296,7 @@ export default function Login() {
             <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-blue-700 shadow-lg shadow-blue-900/10">
               <LockIcon />
             </div>
-            <h2 className="max-w-sm text-2xl font-black leading-10 sm:text-3xl">
+              <h2 className="max-w-sm text-2xl font-black leading-10 sm:text-3xl">
               برای ورود به داشبورد کاربری اقدام کنید.
             </h2>
             <p className="mt-4 max-w-sm text-sm font-medium leading-7 text-blue-50">

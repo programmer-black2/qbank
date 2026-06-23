@@ -15,6 +15,7 @@ const toEnglishDigits = (value: string) =>
 
 const normalizePhone = (value: string) => toEnglishDigits(value).trim();
 const isValidPhone = (value: string) => /^09\d{9}$/.test(value);
+const getDeviceName = () => navigator.userAgent.slice(0, 220);
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -141,14 +142,14 @@ export default function RegisterPage() {
       const response = await verifyStudentRegisterOTP({
         phone: normalizePhone(form.phone),
         code,
-        device_name: navigator.userAgent,
+        device_name: getDeviceName(),
       });
 
       localStorage.setItem("access", response.access);
       localStorage.setItem("refresh", response.refresh);
       localStorage.setItem("user", JSON.stringify(response.user));
       window.dispatchEvent(new Event("auth-changed"));
-      router.push("/category");
+      router.push("/");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
