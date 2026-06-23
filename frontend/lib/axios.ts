@@ -1,10 +1,12 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
+import { clearStoredAuth, isExamPath } from "@/lib/auth";
 
-export type PublicRequestConfig = {
+export type PublicRequestConfig = AxiosRequestConfig & {
   _skipAuth?: boolean;
 };
 
-interface RetryableRequestConfig extends InternalAxiosRequestConfig, PublicRequestConfig {
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _skipAuth?: boolean;
   _retry?: boolean;
 }
 
@@ -13,8 +15,17 @@ interface RefreshTokenResponse {
   refresh?: string;
 }
 
+const getApiBaseUrl = () => {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000";
+
+  return configuredUrl.replace(/\/api\/?$/, "");
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  baseURL: getApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
@@ -30,9 +41,11 @@ const clearAuthAndRedirect = () => {
   const isAuthorPath = currentPath.startsWith("/author");
   const loginPath = isAdminPath ? "/admin/login" : isAuthorPath ? "/author/login" : "/login";
 
-  localStorage.removeItem("access");
-  localStorage.removeItem("refresh");
-  localStorage.removeItem("user");
+  clearStoredAuth();
+
+  if (isExamPath(currentPath)) {
+    return;
+  }
 
   if (currentPath !== loginPath) {
     const next = `${currentPath}${window.location.search}`;
@@ -51,7 +64,7 @@ const requestNewAccessToken = async () => {
   }
 
   const response = await axios.post<RefreshTokenResponse>(
-    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/refresh/`,
+    `${getApiBaseUrl()}/api/auth/refresh/`,
     { refresh },
     {
       headers: {
@@ -71,6 +84,12 @@ const requestNewAccessToken = async () => {
 
 api.interceptors.request.use((config) => {
   const requestConfig = config as RetryableRequestConfig;
+  const baseURL = requestConfig.baseURL || "";
+  const requestUrl = requestConfig.url || "";
+
+  if (/\/api\/?$/.test(baseURL) && requestUrl.startsWith("/api/")) {
+    requestConfig.url = requestUrl.replace(/^\/api/, "");
+  }
 
   if (typeof window !== "undefined" && !requestConfig._skipAuth) {
     const access = localStorage.getItem("access");

@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { hasValidAuthSession } from "@/lib/auth";
 import { SubscriptionPlan } from "@/services/subscription/subscription.api";
 
 type PlanCardProps = {
@@ -16,6 +20,16 @@ const formatPrice = (value: string) => {
 };
 
 export default function PlanCard({ plan }: PlanCardProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setIsAuthenticated(hasValidAuthSession());
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   return (
     <article className="flex h-full flex-col justify-between rounded-2xl border border-slate-100 bg-white p-6 text-right shadow-sm">
       <div className="space-y-4">
@@ -40,7 +54,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
       </div>
 
       <Link
-        href="/login?next=/subscription"
+        href={isAuthenticated ? "/subscription" : "/login?next=/subscription"}
         className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700"
       >
         خرید اشتراک

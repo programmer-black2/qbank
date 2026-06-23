@@ -49,6 +49,7 @@ export interface CategoryNode {
     year_number?: number;
     course_name?: string;
     stage_name?: string;
+    is_public_sample?: boolean;
   };
 }
 

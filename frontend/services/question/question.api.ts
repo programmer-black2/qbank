@@ -1,4 +1,4 @@
-import api from "@/lib/axios";
+import api, { PublicRequestConfig } from "@/lib/axios";
 
 // ================= INTERFACES =================
 
@@ -76,6 +76,13 @@ export interface QuestionListResponse {
   next?: string;
   previous?: string;
   results: Question[];
+}
+
+export interface StudentQuestionAnswer {
+  question_id: number;
+  question_type: 'mcq' | 'descriptive';
+  descriptive_answer_text?: string | null;
+  answer_media_items?: QuestionMedia[];
 }
 
 export interface CategoryTreeNode {
@@ -287,6 +294,54 @@ export const getStudentQuestions = async (params?: {
     params: requestParams,
   });
   return response.data;
+};
+
+export const getPublicQuestions = async (params?: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  exam_type?: number;
+  exam_type_id?: number;
+  year_id?: number;
+  course_id?: number;
+  stage_id?: number;
+  question_type?: string;
+  difficulty?: string;
+  ordering?: string;
+}): Promise<QuestionListResponse> => {
+  const requestParams = params
+    ? {
+        ...params,
+        exam_type_id: params.exam_type_id ?? params.exam_type,
+        exam_type: undefined,
+      }
+    : undefined;
+
+  const response = await api.get("/api/questions/public/questions/", {
+    params: requestParams,
+    _skipAuth: true,
+  } as PublicRequestConfig);
+  return response.data;
+};
+
+export const getStudentQuestionAnswer = async (id: number): Promise<StudentQuestionAnswer> => {
+  const response = await api.get<StudentQuestionAnswer>(`/api/questions/student/questions/${id}/answer/`);
+  return response.data;
+};
+
+export const getPublicQuestionAnswer = async (id: number): Promise<StudentQuestionAnswer> => {
+  const response = await api.get<StudentQuestionAnswer>(`/api/questions/public/questions/${id}/answer/`, {
+    _skipAuth: true,
+  } as PublicRequestConfig);
+  return response.data;
+};
+
+export const reportStudentQuestion = async (id: number, message: string): Promise<void> => {
+  await api.post(`/api/questions/student/questions/${id}/report/`, { message });
+};
+
+export const reportPublicQuestion = async (id: number, message: string): Promise<void> => {
+  await api.post(`/api/questions/public/questions/${id}/report/`, { message });
 };
 
 export const createQuestion = async (data: Omit<Question, 'id'>): Promise<Question> => {

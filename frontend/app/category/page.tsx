@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import AuthGuard from "@/components/guards/AuthGuard";
+import { hasValidAuthSession } from "@/lib/auth";
 import { CategoryNode, getCategoryTree } from "@/services/core/core.api";
+import { getCurrentSubscription } from "@/services/subscription/subscription.api";
 
 type CategorySearchResult = {
   node: CategoryNode;
@@ -100,6 +103,7 @@ export default function CategoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -113,10 +117,21 @@ export default function CategoryPage() {
       .slice(0, 12);
   }, [categories, searchQuery]);
 
+  const isLockedPath = (path: CategoryNode[]) => {
+    if (hasActiveSubscription) return false;
+
+    const course = path.find((node) => node.type === "course");
+    return Boolean(course && course.metadata?.is_public_sample !== true);
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     const loadCategories = async () => {
+      if (!hasValidAuthSession()) {
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
@@ -143,8 +158,32 @@ export default function CategoryPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSubscription = async () => {
+      try {
+        const subscription = await getCurrentSubscription();
+        if (isMounted) {
+          setHasActiveSubscription(subscription?.status === "active");
+        }
+      } catch {
+        if (isMounted) {
+          setHasActiveSubscription(false);
+        }
+      }
+    };
+
+    loadSubscription();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
-    <main className="min-h-screen bg-[#f8fafc] px-4 py-8 text-right md:px-8">
+    <AuthGuard>
+      <main className="min-h-screen bg-[#f8fafc] px-4 py-8 text-right md:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="space-y-3">
           <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700">
@@ -177,20 +216,43 @@ export default function CategoryPage() {
             <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
               {searchResults.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-                  {searchResults.map(({ node, path }) => (
-                    <Link
-                      key={path.map(getNodeKey).join(">")}
-                      href={getCategoryHref(path)}
-                      className="rounded-xl border border-slate-100 bg-white px-3 py-3 text-right transition-colors hover:border-blue-200 hover:text-blue-700"
-                    >
-                      <span className="block text-sm font-black text-slate-800">
-                        {node.name}
-                      </span>
-                      <span className="mt-1 block truncate text-[11px] font-bold text-slate-400">
-                        {path.map((item) => item.name).join(" / ")}
-                      </span>
-                    </Link>
-                  ))}
+                  {searchResults.map(({ node, path }) => {
+                    const locked = isLockedPath(path);
+                    const className = `rounded-xl border px-3 py-3 text-right transition-colors ${
+                      locked
+                        ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400"
+                        : "border-slate-100 bg-white hover:border-blue-200 hover:text-blue-700"
+                    }`;
+                    const content = (
+                      <>
+                        <span className="block text-sm font-black text-slate-800">
+                          {node.name}
+                        </span>
+                        <span className="mt-1 block truncate text-[11px] font-bold text-slate-400">
+                          {path.map((item) => item.name).join(" / ")}
+                        </span>
+                        {locked && (
+                          <span className="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-1 text-[10px] font-black text-slate-600">
+                            قفل - نیازمند اشتراک
+                          </span>
+                        )}
+                      </>
+                    );
+
+                    return locked ? (
+                      <div key={path.map(getNodeKey).join(">")} className={className}>
+                        {content}
+                      </div>
+                    ) : (
+                      <Link
+                        key={path.map(getNodeKey).join(">")}
+                        href={getCategoryHref(path)}
+                        className={className}
+                      >
+                        {content}
+                      </Link>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm font-bold text-slate-500">
@@ -251,6 +313,7 @@ export default function CategoryPage() {
           </section>
         )}
       </div>
-    </main>
+      </main>
+    </AuthGuard>
   );
 }

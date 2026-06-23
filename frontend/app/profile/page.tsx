@@ -5,6 +5,7 @@ import AuthGuard from "@/components/guards/AuthGuard";
 import UserLayout from "@/components/layout/UserLayout";
 import ProfileSummary from "@/components/profile/ProfileSummary";
 import SubscriptionInfo from "@/components/profile/SubscriptionInfo";
+import PlansGrid from "@/components/subscription/PlansGrid";
 import { getCurrentUser } from "@/services/auth/auth.api";
 import {
   getCurrentSubscription,
@@ -65,6 +66,15 @@ export default function ProfilePage() {
           <>
             <ProfileSummary user={user} />
             <SubscriptionInfo subscription={subscription} />
+            <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">خرید یا تمدید اشتراک</h2>
+                <p className="mt-2 text-sm font-medium leading-7 text-slate-500">
+                  پلن‌های فعال را ببینید و اشتراک مناسب خودتان را انتخاب کنید.
+                </p>
+              </div>
+              <PlansGrid />
+            </section>
           </>
         )}
       </UserLayout>

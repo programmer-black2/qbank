@@ -1,7 +1,61 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { clearStoredAuth, getStoredUser, hasValidAuthSession, isExamPath, StoredUser } from "@/lib/auth";
+import { logoutUser } from "@/services/auth/auth.api";
 
 export default function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<StoredUser | null>(null);
+
+  useEffect(() => {
+    const syncAuthState = () => {
+      if (hasValidAuthSession()) {
+        setIsAuthenticated(true);
+        setUser(getStoredUser());
+        return;
+      }
+
+      setIsAuthenticated(false);
+      setUser(null);
+
+      if (!isExamPath(window.location.pathname) && localStorage.getItem("refresh")) {
+        clearStoredAuth();
+      }
+    };
+
+    syncAuthState();
+    window.addEventListener("storage", syncAuthState);
+    window.addEventListener("auth-changed", syncAuthState);
+    window.addEventListener("focus", syncAuthState);
+
+    return () => {
+      window.removeEventListener("storage", syncAuthState);
+      window.removeEventListener("auth-changed", syncAuthState);
+      window.removeEventListener("focus", syncAuthState);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    const refresh = localStorage.getItem("refresh");
+
+    try {
+      if (refresh) {
+        await logoutUser(refresh);
+      }
+    } finally {
+      clearStoredAuth();
+      if (!isExamPath(pathname)) {
+        router.push("/");
+      }
+    }
+  };
+
   return (
     <nav className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,21 +123,47 @@ export default function Header() {
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Link
-                className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4 py-2 transition-colors"
-                href="/login"
-              >
-                ورود
-              </Link>
-              <Link
-                className="bg-blue-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
-                href="/register"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z" />
-                </svg>
-                ثبت نام
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    className="hidden text-sm font-bold text-slate-600 transition-colors hover:text-blue-600 sm:inline-flex"
+                    href="/profile"
+                  >
+                    {user?.full_name || "داشبورد دانشجویی"}
+                  </Link>
+                  <Link
+                    className="bg-blue-600 text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                    href="/profile"
+                  >
+                    داشبورد دانشجویی
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+                  >
+                    خروج
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4 py-2 transition-colors"
+                    href="/login"
+                  >
+                    ورود
+                  </Link>
+                  <Link
+                    className="bg-blue-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                    href="/register"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z" />
+                    </svg>
+                    ثبت نام
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
