@@ -231,7 +231,10 @@ class CategoryTreeView(APIView):
                     'children': [],
                     'metadata': {
                         'stage_id': stage.id,
-                        'stage_name': stage.name_education_stage
+                        'stage_name': stage.name_education_stage,
+                        'course_id': course.id,
+                        'course_name': course.name_course,
+                        'is_public_sample': course.is_public_sample,
                     }
                 }
                 
@@ -246,7 +249,8 @@ class CategoryTreeView(APIView):
                             'course_name': course.name_course,
                             'stage_id': stage.id,
                             'stage_name': stage.name_education_stage,
-                            'year_number': year.years_number
+                            'year_number': year.years_number,
+                            'is_public_sample': course.is_public_sample,
                         }
                     }
                     
@@ -263,7 +267,8 @@ class CategoryTreeView(APIView):
                                 'stage_id': stage.id,
                                 'year_number': year.years_number,
                                 'course_name': course.name_course,
-                                'stage_name': stage.name_education_stage
+                                'stage_name': stage.name_education_stage,
+                                'is_public_sample': course.is_public_sample,
                             }
                         }
                         year_node['children'].append(exam_node)

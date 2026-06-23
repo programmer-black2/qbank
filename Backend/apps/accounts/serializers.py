@@ -55,9 +55,9 @@ def hash_otp(code):
 
 
 def set_user_otp(user, purpose):
-    code = f"{random.SystemRandom().randint(100000, 999999)}"
+    code = f"{random.SystemRandom().randint(10000000, 99999999)}"
     user.otp_purpose = purpose
-    user.otp_code_hash = hash_otp(code)
+    user.otp_code_hash = code
     user.otp_expires_at = timezone.now() + timedelta(minutes=OTP_EXPIRE_MINUTES)
     user.otp_attempts = 0
     user.save(update_fields=[
@@ -96,7 +96,8 @@ def validate_user_otp(user, code, purpose):
         clear_user_otp(user)
         raise serializers.ValidationError("تعداد تلاش‌ها بیش از حد مجاز است")
 
-    if user.otp_code_hash != hash_otp(code):
+    submitted_code = normalize_phone(code)
+    if user.otp_code_hash not in {submitted_code, hash_otp(submitted_code)}:
         user.otp_attempts += 1
         user.save(update_fields=["otp_attempts", "updated_at"])
         raise serializers.ValidationError("کد تایید اشتباه است")
@@ -178,15 +179,11 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 class StudentRegisterRequestOTPSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
     phone = serializers.CharField()
     password = serializers.CharField(write_only=True, min_length=8)
 
     def validate_phone(self, value):
         return validate_iran_mobile(value)
-
-    def validate_email(self, value):
-        return User.objects.normalize_email(value)
 
     def validate_full_name(self, value):
         value = value.strip()
@@ -202,10 +199,6 @@ class StudentRegisterRequestOTPSerializer(serializers.Serializer):
         if user and user.role and user.role.name_roles != Role.NameChoices.STUDENT:
             raise serializers.ValidationError({"phone": "این شماره موبایل قابل ثبت نام دانشجو نیست"})
 
-        email_exists = User.objects.filter(email=attrs["email"]).exclude(phone=attrs["phone"]).exists()
-        if email_exists:
-            raise serializers.ValidationError({"email": "این ایمیل قبلا ثبت شده است"})
-
         return attrs
 
     @transaction.atomic
@@ -220,7 +213,7 @@ class StudentRegisterRequestOTPSerializer(serializers.Serializer):
 
         user.role = student_role
         user.full_name = self.validated_data["full_name"]
-        user.email = self.validated_data["email"]
+        user.email = None
         user.password = make_password(self.validated_data["password"])
         user.is_active = False
         user.phone_verified = False
@@ -271,18 +264,23 @@ class StudentRegisterVerifySerializer(serializers.Serializer):
 
 class StudentLoginRequestOTPSerializer(serializers.Serializer):
     phone = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
     def validate_phone(self, value):
-        phone = validate_iran_mobile(value)
+        return validate_iran_mobile(value)
+
+    def validate(self, attrs):
         user = User.objects.filter(
-            phone=phone,
+            phone=attrs["phone"],
             role__name_roles=Role.NameChoices.STUDENT,
             is_active=True,
         ).first()
-        if not user:
-            raise serializers.ValidationError("دانشجویی با این شماره موبایل پیدا نشد")
+
+        if not user or not user.check_password(attrs["password"]):
+            raise serializers.ValidationError("شماره موبایل یا رمز عبور اشتباه است")
+
         self.user = user
-        return phone
+        return attrs
 
     def save(self, **kwargs):
         code = set_user_otp(self.user, OTP_PURPOSE_LOGIN)

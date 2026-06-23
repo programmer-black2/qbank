@@ -1,7 +1,7 @@
 from uuid import uuid4
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db.models import Count, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, OuterRef, Prefetch, Subquery
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets, filters, mixins
 from rest_framework.decorators import action
@@ -111,18 +111,23 @@ def with_current_workflow_status(queryset):
 
 def filter_visible_questions(queryset):
     return with_current_workflow_status(queryset).filter(
-        Q(current_status_code=WORKFLOW_APPROVED) | Q(current_status_code__isnull=True)
+        current_status_code=WORKFLOW_APPROVED
+    )
+
+
+def get_visible_question_counts_by_exam_type(queryset=None):
+    base_queryset = queryset if queryset is not None else Question.objects.all()
+    return dict(
+        filter_visible_questions(base_queryset)
+        .values('exam_type_id')
+        .annotate(question_count=Count('id'))
+        .values_list('exam_type_id', 'question_count')
     )
 
 
 def get_public_sample_question_counts_by_exam_type():
-    return dict(
-        filter_visible_questions(
-            Question.objects.filter(exam_type__year__course__is_public_sample=True)
-        )
-        .values('exam_type_id')
-        .annotate(question_count=Count('id'))
-        .values_list('exam_type_id', 'question_count')
+    return get_visible_question_counts_by_exam_type(
+        Question.objects.filter(exam_type__year__course__is_public_sample=True)
     )
 
 
@@ -438,10 +443,9 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'], url_path='category-tree')
     def category_tree(self, request):
         tree = []
+        visible_question_counts = get_visible_question_counts_by_exam_type()
 
-        exam_types_queryset = ExamType.objects.annotate(
-            questions_count=Count('questions')
-        ).order_by('name_exam_types')
+        exam_types_queryset = ExamType.objects.order_by('name_exam_types')
         years_queryset = Year.objects.prefetch_related(
             Prefetch('exam_types', queryset=exam_types_queryset)
         ).order_by('years_number')
@@ -479,18 +483,25 @@ class StudentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
                     }
 
                     for exam_type in year.exam_types.all():
+                        question_count = visible_question_counts.get(exam_type.id, 0)
+                        if question_count == 0:
+                            continue
+
                         year_node['children'].append({
                             'id': exam_type.id,
                             'name': exam_type.get_name_exam_types_display(),
                             'type': 'exam_type',
-                            'question_count': exam_type.questions_count
+                            'question_count': question_count
                         })
 
-                    course_node['children'].append(year_node)
+                    if year_node['children']:
+                        course_node['children'].append(year_node)
 
-                stage_node['children'].append(course_node)
+                if course_node['children']:
+                    stage_node['children'].append(course_node)
 
-            tree.append(stage_node)
+            if stage_node['children']:
+                tree.append(stage_node)
 
         return Response(tree)
 
@@ -534,6 +545,29 @@ class PublicQuestionViewSet(viewsets.ReadOnlyModelViewSet):
         question = self.get_object()
         serializer = StudentQuestionAnswerSerializer(question)
         return Response(serializer.data)
+
+    @extend_schema(
+        request=StudentQuestionReportSerializer,
+        responses={201: StudentQuestionReportSerializer},
+        description='Create a pending report for one public sample question.',
+    )
+    @action(detail=True, methods=['post'], url_path='report')
+    def report(self, request, pk=None):
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {'detail': 'برای گزارش سوال باید وارد حساب شوید.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        question = self.get_object()
+        serializer = StudentQuestionReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            user=request.user,
+            question=question,
+            status=QuestionReport.Status.PENDING,
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='category-tree')
     def category_tree(self, request):

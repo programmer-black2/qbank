@@ -67,7 +67,7 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser):
-    id = models.PositiveIntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     role = models.ForeignKey(
         Role,
         on_delete=models.DO_NOTHING,
