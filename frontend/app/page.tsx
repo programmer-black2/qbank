@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import FaqSection from "@/components/home/FaqSection";
 import HomeStats from "@/components/home/HomeStats";
 
 const features = [
@@ -198,6 +199,7 @@ export default function Home() {
       </header>
 
       <FeaturesSection />
+      <FaqSection />
     </>
   );
 }
