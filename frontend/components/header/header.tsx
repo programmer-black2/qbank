@@ -4,14 +4,62 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { clearStoredAuth, getStoredUser, hasValidAuthSession, isExamPath, StoredUser } from "@/lib/auth";
+import {
+  clearStoredAuth,
+  getStoredUser,
+  hasValidAuthSession,
+  isExamPath,
+  StoredUser,
+} from "@/lib/auth";
 import { logoutUser } from "@/services/auth/auth.api";
+import {
+  getCurrentSubscription,
+  UserSubscription,
+} from "@/services/subscription/subscription.api";
+
+function UserIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h10.5A3 3 0 0 1 18.75 7.5v12H8.25a3 3 0 0 0-3 3v-18Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 19.5a3 3 0 0 1 3-3h10.5" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 12a8.25 8.25 0 0 1-14.2 5.73" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12a8.25 8.25 0 0 1 14.2-5.73" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 2.75v4.5h-4.5M6.75 21.25v-4.5h4.5" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12h8.25M17.25 8.75 20.5 12l-3.25 3.25" />
+    </svg>
+  );
+}
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<StoredUser | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
 
   useEffect(() => {
     const syncAuthState = () => {
@@ -23,6 +71,7 @@ export default function Header() {
 
       setIsAuthenticated(false);
       setUser(null);
+      setSubscription(null);
 
       if (!isExamPath(window.location.pathname) && localStorage.getItem("refresh")) {
         clearStoredAuth();
@@ -41,6 +90,24 @@ export default function Header() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isMounted = true;
+
+    getCurrentSubscription()
+      .then((data) => {
+        if (isMounted) setSubscription(data);
+      })
+      .catch(() => {
+        if (isMounted) setSubscription(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+
   const handleLogout = async () => {
     const refresh = localStorage.getItem("refresh");
 
@@ -56,115 +123,125 @@ export default function Header() {
     }
   };
 
+  const remainingDays = subscription?.remaining_days ?? 0;
+  const hasActiveSubscription = subscription?.status === "active" && remainingDays > 0;
+
   return (
-    <nav className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          <div className="flex items-center ">
-            <Link className="flex items-center gap-2 group" href="/">
+    <nav className="sticky top-0 z-[100] w-full border-b border-slate-100 bg-white/90 shadow-sm shadow-slate-100/50 backdrop-blur-xl" dir="rtl">
+      <div className="w-full px-40">
+        <div className="flex h-20 w-full items-center justify-between gap-5">
+          <div className="flex min-w-0 flex-1 items-center justify-start gap-8">
+            <Link className="flex shrink-0 items-center" href="/" aria-label="صفحه اصلی دنتست">
               <Image
-                alt="logo"
+                alt="دنتست"
                 width={150}
                 height={25}
                 src="/images/LogoHeader.jpg"
+                className="h-auto w-[132px] object-contain sm:w-[150px]"
               />
             </Link>
 
-            <div className="hidden lg:flex items-center gap-6">
-              <div className="relative py-7 group cursor-pointer">
-                {/* <div className="flex items-center gap-1 text-sm font-bold transition-colors text-slate-600">
-                  خدمات
-                  <svg
-                    className="w-5 h-5 transition-transform duration-300 group-hover:rotate-180"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-                  </svg>
-                </div> */}
-                <div className="absolute bottom-5 right-0 h-0.5 bg-blue-600 transition-all duration-300 w-0 group-hover:w-full" />
-              </div>
-
-              <Link
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="/category/علوم-پایه-1"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9.68 13.69 12 11.93l2.31 1.76-.88-2.85L15.75 9h-2.84L12 6.19 11.09 9H8.25l2.31 1.84zM20 10c0-4.42-3.58-8-8-8s-8 3.58-8 8c0 2.03.76 3.87 2 5.28V23l6-2 6 2v-7.72c1.24-1.41 2-3.25 2-5.28m-8-6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6m0 15-4 1.02v-3.1c1.18.68 2.54 1.08 4 1.08s2.82-.4 4-1.08v3.1z" />
-                </svg>
+            <div className="hidden items-center gap-7 lg:flex">
+              <Link className="text-sm font-bold text-slate-600 transition-colors hover:text-blue-600" href="/category">
+                مشاهده دروس
+              </Link>
+              <Link className="text-sm font-bold text-slate-600 transition-colors hover:text-blue-600" href="/subscription">
+                اشتراک‌ها
+              </Link>
+              <Link className="text-sm font-bold text-slate-600 transition-colors hover:text-blue-600" href="/category/علوم-پایه-1">
                 علوم پایه پزشکی
               </Link>
-
-              <Link
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="/category/علوم-پایه-1"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3 1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9zm6.82 6L12 12.72 5.18 9 12 5.28zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73z" />
-                </svg>
-                علوم پایه دندان پزشکی
+              <Link className="text-sm font-bold text-slate-600 transition-colors hover:text-blue-600" href="/category/علوم-پایه-1">
+                علوم پایه دندان‌پزشکی
               </Link>
-
-              <a
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="#"
-              >
-                دستیاری پزشکی
-              </a>
-
-              <a
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors"
-                href="#"
-              >
-                پره انترنی
-              </a>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    className="hidden text-sm font-bold text-slate-600 transition-colors hover:text-blue-600 sm:inline-flex"
-                    href="/profile"
-                  >
-                    {user?.full_name || "داشبورد دانشجویی"}
-                  </Link>
-                  <Link
-                    className="bg-blue-600 text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
-                    href="/profile"
-                  >
-                    داشبورد دانشجویی
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600"
-                  >
-                    خروج
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4 py-2 transition-colors"
-                    href="/login"
-                  >
-                    ورود
-                  </Link>
-                  <Link
-                    className="bg-blue-600 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2"
-                    href="/register"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z" />
-                    </svg>
-                    ثبت نام
-                  </Link>
-                </>
-              )}
-            </div>
+          <div className="flex shrink-0 items-center justify-end gap-3">
+            {isAuthenticated ? (
+              <div className="group relative">
+                <button
+                  type="button"
+                  className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-200 bg-cyan-50 text-cyan-700 transition-all hover:border-cyan-300 hover:bg-white hover:shadow-lg hover:shadow-cyan-100"
+                  aria-label="منوی حساب کاربری"
+                >
+                  <UserIcon />
+                </button>
+
+                <div className="invisible absolute left-0 top-full w-72 translate-y-2 pt-3 opacity-0 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                  <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white text-right shadow-2xl shadow-slate-200/70">
+                    <div className="relative overflow-hidden bg-cyan-50 p-5">
+                      <div className="absolute inset-0 opacity-45 [background-image:radial-gradient(circle_at_18px_18px,#67e8f9_2px,transparent_2px)] [background-size:34px_34px]" />
+                      <div className="relative">
+                        <p className="text-xs font-bold text-cyan-700">
+                          {user?.full_name || "دانشجوی دنتست"}
+                        </p>
+                        <p className="mt-3 text-3xl font-black text-cyan-700">
+                          {hasActiveSubscription
+                            ? `${remainingDays.toLocaleString("fa-IR")} روز`
+                            : "بدون اشتراک"}
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-slate-600">
+                          {hasActiveSubscription
+                            ? "از اشتراک شما باقی مانده است"
+                            : "برای مشاهده سوالات اشتراک تهیه کنید"}
+                        </p>
+                        <Link
+                          href="/subscription"
+                          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-600 bg-white px-4 py-3 text-sm font-black text-cyan-700 transition-colors hover:bg-cyan-600 hover:text-white"
+                        >
+                          تمدید اشتراک
+                          <RefreshIcon />
+                        </Link>
+                      </div>
+                    </div>
+
+                    <div className="py-2">
+                      <Link className="block px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600" href="/profile">
+                        پنل دانشجو
+                      </Link>
+                      <Link className="block px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600" href="/category">
+                        دوره‌های من
+                      </Link>
+                      <Link className="block px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600" href="/subscription">
+                        دوره‌های پیشنهادی من
+                      </Link>
+                    </div>
+
+                    {/* <div className="border-t border-slate-100 py-2">
+                      <Link className="block px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600" href="/author/login">
+                        تدریس کنید
+                      </Link>
+                    </div> */}
+
+                    <div className="border-t border-slate-100 p-2">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        خروج از حساب کاربری
+                        <LogoutIcon />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-cyan-600 px-5 text-sm font-black text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 sm:px-6"
+                href="/login"
+              >
+                ورود | ثبت‌نام
+              </Link>
+            )}
+
+            <Link
+              className="hidden min-h-12 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition-colors hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700 sm:inline-flex"
+              href="/category"
+            >
+              <BookIcon />
+            </Link>
           </div>
         </div>
       </div>
