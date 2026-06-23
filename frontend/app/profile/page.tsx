@@ -57,25 +57,31 @@ export default function ProfilePage() {
     <AuthGuard>
       <UserLayout title="پروفایل کاربر">
         {loading && (
-          <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center font-bold text-slate-500">
+          <div className="rounded-[28px] border border-slate-100 bg-white p-10 text-center font-bold text-slate-500 shadow-sm">
             در حال دریافت اطلاعات حساب...
           </div>
         )}
 
         {!loading && user && (
-          <>
-            <ProfileSummary user={user} />
-            <SubscriptionInfo subscription={subscription} />
-            <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+              <ProfileSummary user={user} />
+              <SubscriptionInfo subscription={subscription} />
+            </div>
+
+            <section className="space-y-5 rounded-[28px] border border-slate-100 bg-white p-6 shadow-sm">
               <div>
-                <h2 className="text-lg font-black text-slate-900">خرید یا تمدید اشتراک</h2>
+                <h2 className="text-lg font-black text-slate-900">
+                  خرید یا تمدید اشتراک
+                </h2>
                 <p className="mt-2 text-sm font-medium leading-7 text-slate-500">
                   پلن‌های فعال را ببینید و اشتراک مناسب خودتان را انتخاب کنید.
                 </p>
               </div>
+
               <PlansGrid />
             </section>
-          </>
+          </div>
         )}
       </UserLayout>
     </AuthGuard>
