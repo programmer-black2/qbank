@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { clearStoredAuth, hasValidAuthSession } from "@/lib/auth";
 
 type RoleGuardProps = {
   allowedRoles: string[];
@@ -29,7 +30,7 @@ const getAuthSnapshot = () => {
     return "pending|";
   }
 
-  const hasAccess = localStorage.getItem("access") ? "1" : "0";
+  const hasAccess = hasValidAuthSession() ? "1" : "0";
   return `${hasAccess}|${getStoredRole() || ""}`;
 };
 
@@ -68,6 +69,7 @@ export default function RoleGuard({
     }
 
     if (!hasAccess) {
+      clearStoredAuth();
       router.replace(loginPath);
       return;
     }

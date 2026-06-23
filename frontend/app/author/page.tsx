@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthorLayout from "@/components/layout/AuthorLayout";
+import { clearStoredAuth, hasValidAuthSession } from "@/lib/auth";
 import { questionService } from "@/services/question/question.service";
 import type { AuthorDashboardResponse } from "@/services/question/question.api";
 
@@ -28,17 +29,22 @@ export default function AuthorDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = useCallback(async () => {
+    if (!hasValidAuthSession()) {
+      clearStoredAuth();
+      router.replace("/author/login");
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await questionService.getAuthorDashboard();
       setDashboard(data);
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response?.status;
+      const message = error instanceof Error ? error.message : "";
 
-      if (status === 401 || status === 403) {
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        localStorage.removeItem("user");
+      if (status === 401 || status === 403 || message === "Refresh token is missing") {
+        clearStoredAuth();
         router.replace("/author/login");
         return;
       }

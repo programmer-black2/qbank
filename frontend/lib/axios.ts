@@ -60,6 +60,7 @@ const requestNewAccessToken = async () => {
 
   const refresh = localStorage.getItem("refresh");
   if (!refresh) {
+    clearAuthAndRedirect();
     throw new Error("Refresh token is missing");
   }
 
