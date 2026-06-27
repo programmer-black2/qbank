@@ -155,7 +155,10 @@ export default function Home() {
           <div className="flex flex-col items-center justify-between gap-12 md:flex-row">
             <div className="w-full space-y-8 text-center md:w-1/2 md:text-right">
               <div className="space-y-4">
-                <h1 className="max-w-xl text-4xl font-black leading-[1.5] text-slate-950 md:text-6xl">
+                <h1
+                  id="home-hero-title"
+                  className="max-w-xl text-4xl font-black leading-[1.5] text-slate-950 md:text-6xl"
+                >
                   بانک سوال{" "}
                   <span className="relative mr-3 inline-block text-blue-700">
                     دنتست
