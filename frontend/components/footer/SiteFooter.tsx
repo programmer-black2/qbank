@@ -154,7 +154,7 @@ function ContactColumn() {
           info@smartbank.ir
         </ContactItem>
         <ContactItem icon={<PhoneIcon />} tone="green">
-          <span className="ltr tracking-wider">021-91000000</span>
+          <span className="ltr tracking-wider">09104116077</span>
         </ContactItem>
         <div className="flex gap-3 pt-2">
           <SocialLink href="#" label="اینستاگرام" variant="instagram">
