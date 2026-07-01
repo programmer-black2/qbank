@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminLayout from '@/components/layout/AdminLayout';
 import AdminHeader from '@/components/ui/AdminHeader';
 import { getCurrentUser, logoutUser } from "../../../services/auth/auth.api";
 import { getQuestionStatistics } from '@/services/question/question.api';
@@ -16,7 +17,7 @@ interface DashboardStats {
   activeSubscribedStudents: number | null;
 }
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const router = useRouter();
   const [user, setUser] = useState<AdminUser | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
@@ -373,5 +374,13 @@ export default function AdminDashboard() {
 
       </main>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <AdminLayout>
+      <AdminDashboardContent />
+    </AdminLayout>
   );
 }

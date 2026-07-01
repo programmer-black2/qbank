@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredAuth, hasValidAuthSession } from "@/lib/auth";
+import { getCurrentUser } from "@/services/auth/auth.api";
 
 type RoleGuardProps = {
   allowedRoles: string[];
@@ -43,9 +44,13 @@ const subscribeToAuthStorage = (callback: () => void) => {
 
   const handleStorage = () => callback();
   window.addEventListener("storage", handleStorage);
+  window.addEventListener("auth-changed", handleStorage);
   queueMicrotask(callback);
 
-  return () => window.removeEventListener("storage", handleStorage);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("auth-changed", handleStorage);
+  };
 };
 
 export default function RoleGuard({
@@ -54,6 +59,7 @@ export default function RoleGuard({
   children,
 }: RoleGuardProps) {
   const router = useRouter();
+  const [verifiedAuthKey, setVerifiedAuthKey] = useState<string | null>(null);
   const authSnapshot = useSyncExternalStore(
     subscribeToAuthStorage,
     getAuthSnapshot,
@@ -62,8 +68,12 @@ export default function RoleGuard({
   const [accessValue, role] = authSnapshot.split("|");
   const checked = accessValue !== "pending";
   const hasAccess = accessValue === "1";
+  const allowedRolesKey = useMemo(() => allowedRoles.join("|"), [allowedRoles]);
+  const authKey = `${accessValue}|${role}|${allowedRolesKey}|${loginPath}`;
 
   useEffect(() => {
+    let isActive = true;
+
     if (!checked) {
       return;
     }
@@ -76,11 +86,40 @@ export default function RoleGuard({
 
     if (!role || !allowedRoles.includes(role)) {
       router.replace("/");
+      return;
     }
-  }, [allowedRoles, checked, hasAccess, loginPath, role, router]);
+
+    const verifyCurrentUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        const verifiedRole = user?.role || user?.role_name;
+
+        if (!verifiedRole || !allowedRoles.includes(verifiedRole)) {
+          router.replace("/");
+          return;
+        }
+
+        localStorage.setItem("user", JSON.stringify(user));
+
+        if (isActive) {
+          setVerifiedAuthKey(authKey);
+        }
+      } catch {
+        clearStoredAuth();
+        router.replace(loginPath);
+      }
+    };
+
+    verifyCurrentUser();
+
+    return () => {
+      isActive = false;
+    };
+  }, [allowedRoles, allowedRolesKey, authKey, checked, hasAccess, loginPath, role, router]);
 
   if (
     !checked ||
+    verifiedAuthKey !== authKey ||
     !hasAccess ||
     !role ||
     !allowedRoles.includes(role)
