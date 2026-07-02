@@ -46,6 +46,13 @@ const getCategoryHref = (path: CategoryNode[]) => {
   return `/category/${[getRootSegment(root), ...children.map((node) => node.id)].join("/")}`;
 };
 
+const getChildCountLabel = (node: CategoryNode, count: number) => {
+  if (node.type === "stage") return `${count} درس`;
+  if (node.type === "course") return `${count} سال`;
+  if (node.type === "year") return `${count} نوع آزمون`;
+  return `${node.question_count ?? 0} سوال`;
+};
+
 const flattenCategoryTree = (
   nodes: CategoryNode[],
   parentPath: CategoryNode[] = []
@@ -88,7 +95,7 @@ function CategoryCard({ node, href }: { node: CategoryNode; href: string }) {
 
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] font-bold">
         <span className={childCount > 0 ? "text-slate-500" : "text-slate-400"}>
-          {childCount > 0 ? `${childCount} درس` : "مشاهده سوالات"}
+          {childCount > 0 ? getChildCountLabel(node, childCount) : "مشاهده سوالات"}
         </span>
         <span className="text-blue-600 transition-transform group-hover:-translate-x-1">
           مشاهده

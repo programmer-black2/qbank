@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { FieldErrors, useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { questionService } from '@/services/question/question.service';
 import { Question, QuestionChoice, QuestionMedia } from '@/services/question/question.api';
 
@@ -89,6 +89,19 @@ const filterMediaItems = (items: QuestionMedia[] = []) =>
       original_file_name: item.original_file_name?.trim() || undefined,
       alt_text: item.alt_text?.trim() || undefined,
     }));
+
+const getInvalidMediaItemMessage = (items: QuestionMedia[]) => {
+  const invalidItemIndex = items.findIndex((item) => {
+    const fileUrl = item.file_url?.trim() || '';
+    return fileUrl.startsWith('data:') || fileUrl.length > 2048;
+  });
+
+  if (invalidItemIndex === -1) {
+    return '';
+  }
+
+  return `فایل شماره ${invalidItemIndex + 1} آدرس معتبر ندارد. لطفاً فایل را با دکمه انتخاب فایل آپلود کنید و base64 یا آدرس خیلی طولانی وارد نکنید.`;
+};
 
 const parseSelectId = (value: string): number | '' => {
   return value ? Number(value) : '';
@@ -215,10 +228,47 @@ const withBase64Images = async (items: QuestionMedia[] = []) => {
   );
 };
 
+const formatApiErrorValue = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return value.map(formatApiErrorValue).filter(Boolean).join('، ');
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${key}: ${formatApiErrorValue(nestedValue)}`)
+      .filter(Boolean)
+      .join('، ');
+  }
+
+  return typeof value === 'string' ? value : String(value ?? '');
+};
+
+const getApiErrorMessage = (data: unknown) => {
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (typeof data !== 'object' || data === null) {
+    return '';
+  }
+
+  const entries = Object.entries(data);
+  const messageEntry = entries.find(([key]) => key === 'message' || key === 'detail');
+
+  if (messageEntry) {
+    return formatApiErrorValue(messageEntry[1]);
+  }
+
+  return entries
+    .map(([key, value]) => `${key}: ${formatApiErrorValue(value)}`)
+    .filter(Boolean)
+    .join('، ');
+};
+
 const getErrorMessage = (error: unknown) => {
   if (typeof error === 'object' && error !== null && 'response' in error) {
-    const response = (error as { response?: { data?: { message?: string; detail?: string } } }).response;
-    return response?.data?.message || response?.data?.detail || 'خطا در ثبت سوال';
+    const response = (error as { response?: { data?: unknown } }).response;
+    return getApiErrorMessage(response?.data) || 'خطا در ثبت سوال';
   }
 
   return 'خطا در ثبت سوال';
@@ -428,6 +478,14 @@ export default function QuestionForm({
     }
   };
 
+  const handleExamTypeChange = (examTypeId: number | '') => {
+    setValue('exam_type_id', Number(examTypeId || 0), {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
+
   const buildClipboardPayload = async (data: FormData): Promise<CopiedQuestionData> => ({
     question_text: data.question_text,
     question_type: data.question_type,
@@ -443,6 +501,27 @@ export default function QuestionForm({
     question_media: await withBase64Images(filterMediaItems(data.question_media)),
     answer_media: await withBase64Images(filterMediaItems(data.answer_media)),
   });
+
+  const handleInvalidSubmit = (formErrors: FieldErrors<FormData>) => {
+    setClipboardMessage('');
+
+    if (formErrors.question_text?.message) {
+      setError(String(formErrors.question_text.message));
+      return;
+    }
+
+    if (formErrors.exam_type_id?.message) {
+      setError(String(formErrors.exam_type_id.message));
+      return;
+    }
+
+    if (formErrors.answer?.descriptive_answer_text?.message) {
+      setError(String(formErrors.answer.descriptive_answer_text.message));
+      return;
+    }
+
+    setError('لطفاً فیلدهای الزامی فرم را کامل کنید');
+  };
 
   const handleCopyFormJson = async () => {
     try {
@@ -530,14 +609,32 @@ export default function QuestionForm({
 
     try {
       // Validate based on question type
+      const examTypeId = Number(data.exam_type_id || getValues('exam_type_id'));
+      const normalizedChoices = data.choices
+        .map((choice, index) => ({
+          option_text: choice.option_text?.trim() || '',
+          original_index: index,
+          is_correct: index === correctChoiceIndex,
+        }))
+        .filter((choice) => choice.option_text)
+        .map((choice, index) => ({
+          option_text: choice.option_text,
+          option_number: index + 1,
+          is_correct: choice.original_index === correctChoiceIndex,
+        }));
+
+      if (!Number.isInteger(examTypeId) || examTypeId <= 0) {
+        setError('انتخاب دسته‌بندی الزامی است');
+        return;
+      }
+
       if (data.question_type === 'mcq') {
-        const correctChoices = data.choices
-          .map((choice, index) => ({
-            ...choice,
-            option_number: index + 1,
-            is_correct: index === correctChoiceIndex,
-          }))
-          .filter((choice) => choice.is_correct);
+        const correctChoices = normalizedChoices.filter((choice) => choice.is_correct);
+
+        if (normalizedChoices.length < 2) {
+          setError('سوال چندگزینه‌ای باید حداقل دو گزینه داشته باشد');
+          return;
+        }
 
         if (correctChoices.length !== 1) {
           setError('دقیقاً یک گزینه باید صحیح باشد');
@@ -556,17 +653,26 @@ export default function QuestionForm({
       }
 
       const answerText = data.answer?.descriptive_answer_text?.trim() || '';
+      const questionMedia = filterMediaItems(data.question_media);
       const answerMedia = filterMediaItems(data.answer_media);
+      const invalidQuestionMediaMessage = getInvalidMediaItemMessage(questionMedia);
+      const invalidAnswerMediaMessage = getInvalidMediaItemMessage(answerMedia);
+
+      if (invalidQuestionMediaMessage) {
+        setError(invalidQuestionMediaMessage);
+        return;
+      }
+
+      if (invalidAnswerMediaMessage) {
+        setError(invalidAnswerMediaMessage);
+        return;
+      }
 
       const submitData: Question = {
         ...data,
-        exam_type_id: Number(data.exam_type_id),
-        choices: data.choices.map((choice, index) => ({
-          ...choice,
-          option_number: index + 1,
-          is_correct: index === correctChoiceIndex,
-        })),
-        question_media: filterMediaItems(data.question_media),
+        exam_type_id: examTypeId,
+        choices: normalizedChoices,
+        question_media: questionMedia,
         answer: answerText ? { descriptive_answer_text: answerText } : undefined,
         answer_media: answerMedia,
       };
@@ -585,6 +691,7 @@ export default function QuestionForm({
       await onSubmit(submitData);
 
       if (!question) {
+        clearAutosaveDraft();
         saveStoredDraftDefaults({
           selectedStage,
           selectedCourse,
@@ -846,7 +953,7 @@ export default function QuestionForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} className="space-y-6">
         
         {/* Question Text */}
         <div>
@@ -972,7 +1079,12 @@ export default function QuestionForm({
 
             {/* Exam Type */}
             <select
-              {...register('exam_type_id', { required: 'انتخاب نوع آزمون الزامی است' })}
+              {...register('exam_type_id', {
+                valueAsNumber: true,
+                validate: (value) => Number(value) > 0 || 'انتخاب نوع آزمون الزامی است',
+              })}
+              value={Number(selectedExamTypeId || 0) || ''}
+              onChange={(event) => handleExamTypeChange(parseSelectId(event.target.value))}
               disabled={!examTypes.length && !selectedExamTypeId}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             >
@@ -1014,7 +1126,7 @@ export default function QuestionForm({
                   </div>
                   <div className="flex-1">
                     <input
-                      {...register(`choices.${index}.option_text`, { required: 'متن گزینه الزامی است' })}
+                      {...register(`choices.${index}.option_text`)}
                       type="text"
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder={`گزینه ${index + 1}`}
@@ -1097,6 +1209,12 @@ export default function QuestionForm({
         )}
 
         {/* Action Buttons */}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="flex gap-3 pt-4">
           <button
             type="submit"

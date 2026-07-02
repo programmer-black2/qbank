@@ -18,6 +18,7 @@ type QuestionManagementPanelProps = {
   showStats?: boolean;
   mode?: "admin" | "author";
   readOnly?: boolean;
+  initialWorkflowStatus?: string;
 };
 
 type CategoryStage = {
@@ -88,6 +89,7 @@ export default function QuestionManagementPanel({
   showStats = true,
   mode = "admin",
   readOnly = false,
+  initialWorkflowStatus = "",
 }: QuestionManagementPanelProps) {
   const router = useRouter();
   const canManageQuestions = !readOnly;
@@ -112,7 +114,7 @@ export default function QuestionManagementPanel({
     course_id: "",
     year_id: "",
     exam_type_id: "",
-    workflow_status: "",
+    workflow_status: initialWorkflowStatus,
   });
 
   const updateFilters = (updater: (previousFilters: typeof filters) => typeof filters) => {
@@ -190,18 +192,22 @@ export default function QuestionManagementPanel({
 
   const handleCreateQuestion = async (questionData: Question) => {
     await questionApi.createQuestion(questionData);
-    await loadQuestions();
     setIsModalOpen(false);
     setEditingQuestion(null);
+    await loadQuestions().catch((error) => {
+      console.error("Error reloading questions after create:", error);
+    });
   };
 
   const handleUpdateQuestion = async (questionData: Question) => {
     if (!editingQuestion?.id) return;
 
     await questionApi.updateQuestion(editingQuestion.id, questionData);
-    await loadQuestions();
     setIsModalOpen(false);
     setEditingQuestion(null);
+    await loadQuestions().catch((error) => {
+      console.error("Error reloading questions after update:", error);
+    });
   };
 
   const handleDeleteQuestion = async (id: number) => {

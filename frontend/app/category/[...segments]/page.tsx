@@ -67,6 +67,13 @@ const getCategoryHref = (path: CategoryNode[]) => {
   return `/category/${[getRootSegment(root), ...children.map((node) => node.id)].join("/")}`;
 };
 
+const getChildCountLabel = (node: CategoryNode, count: number) => {
+  if (node.type === "stage") return `${count} درس`;
+  if (node.type === "course") return `${count} سال`;
+  if (node.type === "year") return `${count} نوع آزمون`;
+  return `${node.question_count ?? 0} سوال`;
+};
+
 const resolveCategoryRoute = (
   categories: CategoryNode[],
   segments: string[]
@@ -176,7 +183,7 @@ function CategoryCard({
 
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] font-bold">
         <span className={childCount > 0 ? "text-slate-500" : "text-slate-400"}>
-          {locked ? "نیازمند اشتراک" : childCount > 0 ? `${childCount} سال` : "مشاهده سوالات"}
+          {locked ? "نیازمند اشتراک" : childCount > 0 ? getChildCountLabel(node, childCount) : "مشاهده سوالات"}
         </span>
         <span className={locked ? "text-slate-400" : "text-blue-600 transition-transform group-hover:-translate-x-1"}>
           {locked ? "قفل" : "مشاهده"}

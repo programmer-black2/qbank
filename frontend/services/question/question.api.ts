@@ -355,8 +355,17 @@ export const createQuestion = async (data: Omit<Question, 'id'>): Promise<Questi
 };
 
 export const createAuthorQuestion = async (data: Omit<Question, 'id'>): Promise<Question> => {
-  const response = await api.post("/api/questions/author/questions/", data);
-  return response.data;
+  try {
+    const response = await api.post("/api/questions/author/questions/", data);
+    return response.data;
+  } catch (error) {
+    const responseData = (error as { response?: { data?: unknown } }).response?.data;
+    console.error(
+      "Author question create failed:",
+      responseData ? JSON.stringify(responseData, null, 2) : error
+    );
+    throw error;
+  }
 };
 
 export const updateQuestion = async (id: number, data: Partial<Question>): Promise<Question> => {

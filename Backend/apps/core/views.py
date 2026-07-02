@@ -4,11 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, Prefetch
+from django.db.models import Count, OuterRef, Prefetch, Subquery
 from apps.accounts.models import User
 from apps.core.models import EducationStage, Course, Year, ExamType
 from apps.exam.models import Exam
-from apps.questions.models import Question
+from apps.questions.models import Question, QuestionStatusHistory
 from .serializers import (
     EducationStageSerializer, CourseSerializer,
     YearSerializer, ExamTypeSerializer, CategoryNodeSerializer,
@@ -202,9 +202,20 @@ class CategoryTreeView(APIView):
     
     def get(self, request):
         tree = []
-        exam_types_queryset = ExamType.objects.annotate(
-            questions_count=Count('questions')
-        ).order_by('name_exam_types')
+        latest_status = (
+            QuestionStatusHistory.objects
+            .filter(question_id=OuterRef('pk'))
+            .order_by('-changed_at', '-id')
+        )
+        approved_question_counts = dict(
+            Question.objects
+            .annotate(current_status_code=Subquery(latest_status.values('new_status__code')[:1]))
+            .filter(current_status_code='approved')
+            .values('exam_type_id')
+            .annotate(question_count=Count('id'))
+            .values_list('exam_type_id', 'question_count')
+        )
+        exam_types_queryset = ExamType.objects.order_by('name_exam_types')
         years_queryset = Year.objects.prefetch_related(
             Prefetch('exam_types', queryset=exam_types_queryset)
         ).order_by('years_number')
@@ -259,7 +270,7 @@ class CategoryTreeView(APIView):
                             'id': exam_type.id,
                             'name': exam_type.get_name_exam_types_display(),
                             'type': 'exam_type',
-                            'question_count': exam_type.questions_count,
+                            'question_count': approved_question_counts.get(exam_type.id, 0),
                             'metadata': {
                                 'name_exam_types': exam_type.name_exam_types,
                                 'year_id': year.id,

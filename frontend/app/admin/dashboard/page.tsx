@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import AdminHeader from '@/components/ui/AdminHeader';
 import { getCurrentUser, logoutUser } from "../../../services/auth/auth.api";
-import { getQuestionStatistics } from '@/services/question/question.api';
+import { getQuestions, getQuestionStatistics, Question } from '@/services/question/question.api';
 import { getActiveSubscribedStudentsCount } from '@/services/subscription/subscription.api';
 
 interface AdminUser {
@@ -15,7 +15,13 @@ interface AdminUser {
 interface DashboardStats {
   totalQuestions: number | null;
   activeSubscribedStudents: number | null;
+  pendingQuestions: number | null;
 }
+
+const truncateText = (value: string, maxLength = 90) => {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}...`;
+};
 
 function AdminDashboardContent() {
   const router = useRouter();
@@ -23,21 +29,26 @@ function AdminDashboardContent() {
   const [stats, setStats] = useState<DashboardStats>({
     totalQuestions: null,
     activeSubscribedStudents: null,
+    pendingQuestions: null,
   });
+  const [pendingQuestions, setPendingQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
-      const [questionStats, activeStudentsStats] = await Promise.all([
+      const [questionStats, activeStudentsStats, pendingQuestionsData] = await Promise.all([
         getQuestionStatistics(),
         getActiveSubscribedStudentsCount(),
+        getQuestions({ workflow_status: 'pending', page_size: 5 }),
       ]);
       setStats({
         totalQuestions: questionStats.total_questions,
         activeSubscribedStudents: activeStudentsStats.active_students,
+        pendingQuestions: pendingQuestionsData.count ?? pendingQuestionsData.results.length,
       });
+      setPendingQuestions(pendingQuestionsData.results || []);
     } catch {
       // اگر توکن نامعتبر بود، به صفحه لاگین برگرد
       router.push('/admin/login');
@@ -77,6 +88,10 @@ function AdminDashboardContent() {
 
   const navigateToQuestions = () => {
     router.push('/admin/question');
+  };
+
+  const navigateToPendingQuestions = () => {
+    router.push('/admin/question?workflow_status=pending');
   };
 
   if (loading) {
@@ -176,6 +191,67 @@ function AdminDashboardContent() {
             </div>
           </div>
         </div>
+
+        <section className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.008v.008H12V16.5zm8.25 2.25H3.75L12 4.5l8.25 14.25z" />
+                </svg>
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-lg font-black text-amber-950">سوال‌های در انتظار تایید نویسنده‌ها</h3>
+                  <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-amber-800 shadow-sm">
+                    {stats.pendingQuestions ?? '---'} مورد
+                  </span>
+                </div>
+                <p className="mt-1 text-sm font-medium leading-6 text-amber-800">
+                  سوال‌های تازه ثبت‌شده تا قبل از تایید ادمین برای کاربران منتشر نمی‌شوند.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={navigateToPendingQuestions}
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-amber-600 px-5 text-sm font-black text-white transition-colors hover:bg-amber-700"
+            >
+              بررسی و تایید سوال‌ها
+            </button>
+          </div>
+
+          {pendingQuestions.length > 0 ? (
+            <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+              {pendingQuestions.slice(0, 3).map((question) => (
+                <button
+                  key={question.id}
+                  type="button"
+                  onClick={navigateToPendingQuestions}
+                  className="rounded-lg border border-amber-200 bg-white p-4 text-right transition-colors hover:border-amber-300 hover:bg-amber-100"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs font-black text-amber-700">#{question.id}</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                      {question.question_type === 'mcq' ? 'چندگزینه‌ای' : 'تشریحی'}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold leading-6 text-gray-900">
+                    {truncateText(question.question_text)}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-gray-500">
+                    نویسنده: {question.created_by_name || 'نامشخص'}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-lg border border-amber-100 bg-white px-4 py-3 text-sm font-bold text-amber-800">
+              فعلا سوالی در انتظار تایید نیست.
+            </div>
+          )}
+        </section>
 
         {/* Quick Actions */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
