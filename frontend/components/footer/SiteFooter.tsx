@@ -4,7 +4,7 @@ const quickLinks = [
   { label: "لیست آزمون‌ها", href: "/category" },
   { label: "بانک سوالات", href: "/category" },
   { label: "پنل کاربری دانش‌آموز", href: "/profile" },
-  { label: "درباره ما", href: "#" },
+  { label: "درباره ما", href: "/about" },
 ];
 
 function SectionTitle({ children }: { children: React.ReactNode }) {

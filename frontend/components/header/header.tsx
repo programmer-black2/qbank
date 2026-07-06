@@ -29,7 +29,6 @@ const navItems: Array<{
   { label: "خانه", href: "/", icon: "home", activeMatch: "/" },
   { label: "مشاهده دروس", href: "/category", icon: "book", activeMatch: "/category" },
   { label: "آزمون", href: "/exam", icon: "chart", activeMatch: "/exam" },
-  { label: "منابع", href: "/resources", icon: "file", activeMatch: "/resources" },
   { label: "قیمت‌ها", href: "/subscription", icon: "tag", activeMatch: "/subscription" },
   { label: "درباره ما", href: "/about", icon: "info", activeMatch: "/about" },
 ];
