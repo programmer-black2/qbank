@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +17,8 @@ const toEnglishDigits = (value: string) =>
 const normalizePhone = (value: string) => toEnglishDigits(value).trim();
 const isValidPhone = (value: string) => /^09\d{9}$/.test(value);
 const getDeviceName = () => navigator.userAgent.slice(0, 120);
+const OTP_LENGTH = 8;
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -32,14 +35,6 @@ function EyeIcon({ open }: { open: boolean }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.88 9.88A3 3 0 0 1 14.12 14.12M4.5 4.5l15 15" />
         </>
       )}
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M17 9h-1V7A4 4 0 0 0 8 7v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2M10 7a2 2 0 0 1 4 0v2h-4z" />
     </svg>
   );
 }
@@ -77,10 +72,64 @@ export default function Login() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otpStatus, setOtpStatus] = useState<"idle" | "success" | "error">("idle");
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const updateField = (name: keyof typeof formData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError("");
+    if (name === "otp") setOtpStatus("idle");
+  };
+
+  const setOtpCode = (value: string) => {
+    const digits = toEnglishDigits(value).replace(/\D/g, "").slice(0, OTP_LENGTH);
+    updateField("otp", digits);
+    return digits;
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    const digits = toEnglishDigits(value).replace(/\D/g, "");
+    if (!digits) {
+      const nextCode = formData.otp.padEnd(OTP_LENGTH, " ").split("");
+      nextCode[index] = " ";
+      updateField("otp", nextCode.join("").replace(/\s/g, ""));
+      return;
+    }
+
+    const nextCode = formData.otp.padEnd(OTP_LENGTH, " ").split("");
+    digits
+      .slice(0, OTP_LENGTH - index)
+      .split("")
+      .forEach((digit, offset) => {
+        nextCode[index + offset] = digit;
+      });
+
+    const normalizedCode = setOtpCode(nextCode.join("").replace(/\s/g, ""));
+    const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+    if (normalizedCode.length < OTP_LENGTH) {
+      otpInputRefs.current[nextIndex]?.focus();
+      otpInputRefs.current[nextIndex]?.select();
+    } else if (!loading && otpStatus === "idle") {
+      setTimeout(() => void verifyOTP(normalizedCode), 0);
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace" && !formData.otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+      otpInputRefs.current[index - 1]?.select();
+    }
+  };
+
+  const handleOtpPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const digits = setOtpCode(event.clipboardData.getData("text"));
+    const focusIndex = Math.min(digits.length, OTP_LENGTH - 1);
+    otpInputRefs.current[focusIndex]?.focus();
+    otpInputRefs.current[focusIndex]?.select();
+    if (digits.length === OTP_LENGTH && !loading && otpStatus === "idle") {
+      setTimeout(() => void verifyOTP(digits), 0);
+    }
   };
 
   const validateCredentials = () => {
@@ -108,8 +157,10 @@ export default function Login() {
         phone,
         password: formData.password,
       });
-      setFormData((prev) => ({ ...prev, phone }));
+      setFormData((prev) => ({ ...prev, phone, otp: "" }));
+      setOtpStatus("idle");
       setStep("otp");
+      requestAnimationFrame(() => otpInputRefs.current[0]?.focus());
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -117,17 +168,18 @@ export default function Login() {
     }
   };
 
-  const handleVerifyOTP = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const code = toEnglishDigits(formData.otp).trim();
+  const verifyOTP = useCallback(async (otpValue = formData.otp) => {
+    const code = toEnglishDigits(otpValue).trim();
 
-    if (!code) {
-      setError("کد تایید الزامی است.");
+    if (code.length !== OTP_LENGTH) {
+      setError("کد تایید باید 8 رقم باشد.");
+      setOtpStatus("error");
       return;
     }
 
     try {
       setLoading(true);
+      setOtpStatus("idle");
       const response = await verifyStudentLoginOTP({
         phone: normalizePhone(formData.phone),
         code,
@@ -138,40 +190,43 @@ export default function Login() {
       localStorage.setItem("refresh", response.refresh);
       localStorage.setItem("user", JSON.stringify(response.user));
       window.dispatchEvent(new Event("auth-changed"));
+      setOtpStatus("success");
+      await wait(1000);
 
       const next = new URLSearchParams(window.location.search).get("next");
       router.push(next && !next.startsWith("/admin") ? next : "/");
     } catch (err) {
+      setOtpStatus("error");
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }, [formData.otp, formData.phone, router]);
+
+  const handleVerifyOTP = (event: React.FormEvent) => {
+    event.preventDefault();
+    void verifyOTP();
   };
 
   const inputShellClass =
-    "flex min-h-14 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 transition-all focus-within:border-blue-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10";
+    "flex min-h-12 items-center gap-3 rounded-lg border border-blue-100 bg-white/95 px-4 shadow-[0_8px_22px_rgba(29,78,216,0.08)] transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10";
 
   return (
-    <div className="min-h-screen bg-blue-50 p-3 sm:p-6" dir="rtl">
-      <div className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] md:min-h-[calc(100vh-48px)] md:flex-row">
-        <main className="flex w-full items-center justify-center p-5 sm:p-8 md:w-[56%] lg:p-12">
-          <div className="w-full max-w-md">
-            <div className="mb-8">
-              <p className="text-xs font-black uppercase tracking-widest text-blue-600">
-                {step === "credentials" ? "ورود امن" : "تایید موبایل"}
-              </p>
-              <h1 className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">
-                {step === "credentials" ? "خوش برگشتی!" : "کد تایید را وارد کن"}
-              </h1>
-              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                {step === "credentials"
-                  ? "شماره موبایل و رمز عبور را وارد کنید تا کد تایید ارسال شود."
-                  : `کد ارسال شده به ${formData.phone} را وارد کنید.`}
-              </p>
-            </div>
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#d8ecff_0,#f7fbff_42%,#eaf5ff_100%)] px-3 py-0 text-slate-950 before:absolute before:inset-x-0 before:bottom-0 before:h-56 before:rounded-t-[55%] before:bg-blue-100/55 sm:px-6" dir="rtl">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-[500px] items-center">
+        <div className="w-full overflow-hidden border border-white/80 bg-white/90 shadow-[0_34px_100px_rgba(30,64,175,0.18)] backdrop-blur-sm sm:rounded-[30px]">
+          <Image
+            src="/images/login-auth-hero.png"
+            alt="ورود امن به بانک سوال پزشکی"
+            width={720}
+            height={400}
+            priority
+            className="block h-[420px] w-full object-cover object-top sm:h-[520px]"
+          />
+          <div className="rounded-t-[34px] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,#eef7ff_100%)] px-7 pb-8 pt-8 shadow-[0_-10px_34px_rgba(219,234,254,0.55)] sm:px-12 sm:pb-10">
 
             {error && (
-              <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              <div className="mb-5 rounded-xl border border-red-100 bg-red-50/95 px-4 py-3 text-sm font-bold text-red-700 shadow-sm">
                 {error}
               </div>
             )}
@@ -238,7 +293,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-14 w-full rounded-lg bg-[#154a91] text-base font-black text-white shadow-[0_16px_34px_rgba(21,74,145,0.24)] transition-all hover:-translate-y-0.5 hover:bg-[#0f3f7e] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? "در حال ارسال کد..." : "دریافت کد تایید"}
                 </button>
@@ -246,33 +301,42 @@ export default function Login() {
             ) : (
               <form onSubmit={handleVerifyOTP} className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-600">کد تایید</label>
-                  <div className={inputShellClass}>
-                    <input
-                      type="text"
-                      value={formData.otp}
-                      onChange={(event) => updateField("otp", event.target.value)}
-                      placeholder="کد پیامک شده"
-                      className="w-full bg-transparent py-3 text-center text-lg font-medium tracking-[0.4em] text-slate-800 outline-none placeholder:text-slate-400 ltr"
-                      autoComplete="one-time-code"
-                      inputMode="numeric"
-                      required
-                    />
+                  <label className="mb-3 block text-xs font-bold text-slate-600">کد تایید</label>
+                  <div dir="ltr" className="flex justify-center gap-2 sm:gap-3">
+                    {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+                      <input
+                        key={index}
+                        ref={(element) => {
+                          otpInputRefs.current[index] = element;
+                        }}
+                        type="text"
+                        value={formData.otp[index] ?? ""}
+                        onChange={(event) => handleOtpChange(index, event.target.value)}
+                        onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                        onPaste={handleOtpPaste}
+                        aria-label={`OTP digit ${index + 1}`}
+                        style={{ fontFamily: "var(--font-vazir), system-ui, sans-serif" }}
+                        className={`h-12 w-10 rounded-xl border-2 bg-white text-center text-lg font-black text-slate-900 shadow-[0_8px_20px_rgba(29,78,216,0.08)] outline-none transition-all duration-200 sm:h-14 sm:w-12 sm:text-xl ${otpStatus === "success"
+                            ? "border-emerald-500 text-emerald-600 ring-4 ring-emerald-500/10"
+                            : otpStatus === "error"
+                              ? "border-red-500 text-red-600 ring-4 ring-red-500/10 animate-shake"
+                              : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          } ${loading || otpStatus === "success" ? "opacity-60" : "hover:border-slate-300"}`}
+                        autoComplete={index === 0 ? "one-time-code" : "off"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={index === 0 ? OTP_LENGTH : 1}
+                        disabled={loading || otpStatus === "success"}
+                        required
+                      />
+                    ))}
                   </div>
                 </div>
 
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading ? "در حال تایید..." : "تایید و ورود"}
-                </button>
-
-                <button
                   type="button"
                   onClick={() => setStep("credentials")}
-                  className="h-12 w-full rounded-xl border border-slate-200 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50"
+                  className="h-12 w-full rounded-lg border border-blue-100 bg-white/75 text-sm font-black text-slate-700 transition-colors hover:bg-white"
                 >
                   ویرایش شماره یا رمز
                 </button>
@@ -282,39 +346,14 @@ export default function Login() {
             <div className="mt-8">
               <Link
                 href="/register"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-800 transition-colors hover:bg-slate-50"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white/80 text-sm font-black text-[#154a91] transition-colors hover:border-blue-200 hover:bg-white"
               >
                 ایجاد حساب جدید
               </Link>
             </div>
           </div>
-        </main>
-
-        <aside className="relative flex min-h-52 flex-col justify-between overflow-hidden bg-blue-600 p-6 text-white sm:p-8 md:w-[44%] md:p-10">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_45%,rgba(191,219,254,0.34))]" />
-          <div className="relative z-10">
-            <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-blue-700 shadow-lg shadow-blue-900/10">
-              <LockIcon />
-            </div>
-              <h2 className="max-w-sm text-2xl font-black leading-10 sm:text-3xl">
-              برای ورود به داشبورد کاربری اقدام کنید.
-            </h2>
-            <p className="mt-4 max-w-sm text-sm font-medium leading-7 text-blue-50">
-              رمز عبور ابتدا بررسی می شود و سپس کد تایید فقط برای شماره موبایل ثبت شده ارسال می شود.
-            </p>
-          </div>
-          <div className="relative z-10 mt-8 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/30 bg-white/15 p-4">
-              <div className="text-sm font-black text-white">رمز عبور</div>
-              <div className="mt-1 text-xs leading-5 text-blue-50">مرحله اول ورود</div>
-            </div>
-            <div className="rounded-xl border border-white/30 bg-white/15 p-4">
-              <div className="text-sm font-black text-white">کد پیامکی</div>
-              <div className="mt-1 text-xs leading-5 text-blue-50">مرحله دوم تایید</div>
-            </div>
-          </div>
-        </aside>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

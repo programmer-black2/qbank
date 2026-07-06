@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useCallback, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   requestStudentRegisterOTP,
@@ -16,6 +16,8 @@ const toEnglishDigits = (value: string) =>
 const normalizePhone = (value: string) => toEnglishDigits(value).trim();
 const isValidPhone = (value: string) => /^09\d{9}$/.test(value);
 const getDeviceName = () => navigator.userAgent.slice(0, 220);
+const OTP_LENGTH = 8;
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -32,14 +34,6 @@ function EyeIcon({ open }: { open: boolean }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.88 9.88A3 3 0 0 1 14.12 14.12M4.5 4.5l15 15" />
         </>
       )}
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M10 17 5 12l5-5 1.42 1.42L8.84 11H19v2H8.84l2.58 2.58z" />
     </svg>
   );
 }
@@ -71,6 +65,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otpStatus, setOtpStatus] = useState<"idle" | "success" | "error">("idle");
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [form, setForm] = useState({
     full_name: "",
     phone: "",
@@ -80,13 +76,65 @@ export default function RegisterPage() {
   });
 
   const inputShellClass =
-    "flex min-h-14 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 transition-all focus-within:border-blue-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10";
+    "flex min-h-12 items-center gap-3 rounded-lg border border-blue-100 bg-white/95 px-4 shadow-[0_8px_22px_rgba(29,78,216,0.08)] transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10";
   const inputClass =
     "w-full bg-transparent py-3 text-right text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400";
 
   const updateField = (name: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
+    if (name === "otp") setOtpStatus("idle");
+  };
+
+  const setOtpCode = (value: string) => {
+    const digits = toEnglishDigits(value).replace(/\D/g, "").slice(0, OTP_LENGTH);
+    updateField("otp", digits);
+    return digits;
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    const digits = toEnglishDigits(value).replace(/\D/g, "");
+    if (!digits) {
+      const nextCode = form.otp.padEnd(OTP_LENGTH, " ").split("");
+      nextCode[index] = " ";
+      updateField("otp", nextCode.join("").replace(/\s/g, ""));
+      return;
+    }
+
+    const nextCode = form.otp.padEnd(OTP_LENGTH, " ").split("");
+    digits
+      .slice(0, OTP_LENGTH - index)
+      .split("")
+      .forEach((digit, offset) => {
+        nextCode[index + offset] = digit;
+      });
+
+    const normalizedCode = setOtpCode(nextCode.join("").replace(/\s/g, ""));
+    const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+    if (normalizedCode.length < OTP_LENGTH) {
+      otpInputRefs.current[nextIndex]?.focus();
+      otpInputRefs.current[nextIndex]?.select();
+    } else if (!loading && otpStatus === "idle") {
+      setTimeout(() => void verifyOTP(normalizedCode), 0);
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace" && !form.otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+      otpInputRefs.current[index - 1]?.select();
+    }
+  };
+
+  const handleOtpPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const digits = setOtpCode(event.clipboardData.getData("text"));
+    const focusIndex = Math.min(digits.length, OTP_LENGTH - 1);
+    otpInputRefs.current[focusIndex]?.focus();
+    otpInputRefs.current[focusIndex]?.select();
+    if (digits.length === OTP_LENGTH && !loading && otpStatus === "idle") {
+      setTimeout(() => void verifyOTP(digits), 0);
+    }
   };
 
   const validateRegisterForm = () => {
@@ -119,8 +167,10 @@ export default function RegisterPage() {
         phone,
         password: form.password,
       });
-      setForm((prev) => ({ ...prev, phone }));
+      setForm((prev) => ({ ...prev, phone, otp: "" }));
+      setOtpStatus("idle");
       setStep("otp");
+      requestAnimationFrame(() => otpInputRefs.current[0]?.focus());
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -128,17 +178,18 @@ export default function RegisterPage() {
     }
   };
 
-  const handleVerifyOTP = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const code = toEnglishDigits(form.otp).trim();
+  const verifyOTP = useCallback(async (otpValue = form.otp) => {
+    const code = toEnglishDigits(otpValue).trim();
 
-    if (!code) {
-      setError("کد تایید الزامی است.");
+    if (code.length !== OTP_LENGTH) {
+      setError("کد تایید باید 8 رقم باشد.");
+      setOtpStatus("error");
       return;
     }
 
     try {
       setLoading(true);
+      setOtpStatus("idle");
       const response = await verifyStudentRegisterOTP({
         phone: normalizePhone(form.phone),
         code,
@@ -149,73 +200,45 @@ export default function RegisterPage() {
       localStorage.setItem("refresh", response.refresh);
       localStorage.setItem("user", JSON.stringify(response.user));
       window.dispatchEvent(new Event("auth-changed"));
+      setOtpStatus("success");
+      await wait(1000);
       router.push("/");
     } catch (err) {
+      setOtpStatus("error");
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }, [form.otp, form.phone, router]);
+
+  const handleVerifyOTP = (event: React.FormEvent) => {
+    event.preventDefault();
+    void verifyOTP();
   };
 
   return (
-    <div className="min-h-screen bg-blue-50 p-3 sm:p-6" dir="rtl">
-      <div className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] md:min-h-[calc(100vh-48px)] md:flex-row">
-        <aside className="relative flex min-h-48 flex-col justify-between overflow-hidden bg-blue-600 p-6 text-white sm:p-8 md:w-[42%] md:p-10">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_42%,rgba(191,219,254,0.34))]" />
-          <div className="relative z-10">
-            <Link href="/" className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-blue-700 shadow-lg shadow-blue-900/10 transition-colors hover:bg-blue-50" aria-label="بازگشت به صفحه اصلی">
-              <ArrowIcon />
-            </Link>
-            <h2 className="max-w-sm text-2xl font-black leading-10 sm:text-3xl">
-              حساب دانشجویی خودت رو ایجاد کن و به دنیایی از سوالات وارد شو
-            </h2>
-            <p className="mt-4 max-w-sm text-sm font-medium leading-7 text-blue-50"></p>
-          </div>
-          <div className="relative z-10 mt-8 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl border border-white/30 bg-white/15 p-3">
-              <div className="text-lg font-black">تعداد سوالات</div>
-              <div className="mt-1 text-[11px] text-blue-50">+20000</div>
-            </div>
-            <div className="rounded-xl border border-white/30 bg-white/15 p-3">
-              <div className="text-lg font-black">تعداد دانشجو</div>
-              <div className="mt-1 text-[11px] text-blue-50">+200</div>
-            </div>
-            <div className="rounded-xl border border-white/30 bg-white/15 p-3">
-              <div className="text-lg font-black">تعداد درس</div>
-              <div className="mt-1 text-[11px] text-blue-50">+100</div>
-            </div>
-          </div>
-        </aside>
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#d8ecff_0,#f7fbff_42%,#eaf5ff_100%)] px-3 py-0 text-slate-950 before:absolute before:inset-x-0 before:bottom-0 before:h-56 before:rounded-t-[55%] before:bg-blue-100/55 sm:px-6" dir="rtl">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-[500px] items-center">
+        <div className="w-full overflow-hidden border border-white/80 bg-white/90 shadow-[0_34px_100px_rgba(30,64,175,0.18)] backdrop-blur-sm sm:rounded-[30px]">
+          <Image
+            src="/images/register-auth-hero.png"
+            alt="ثبت نام در بانک سوال پزشکی"
+            width={720}
+            height={420}
+            priority
+            className="block h-[420px] w-full object-cover object-top sm:h-[520px]"
+          />
 
-        <main className="flex w-full items-center justify-center p-5 sm:p-8 md:w-[58%] lg:p-12">
-          <div className="w-full max-w-xl">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-blue-600">
-                  {step === "form" ? "ثبت نام" : "تایید شماره"}
-                </p>
-                <h1 className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">ثبت نام دانش آموز</h1>
-                <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                  {step === "form" ? "اطلاعات حساب را کامل وارد کنید." : `کد ارسال شده به ${form.phone} را وارد کنید.`}
-                </p>
-              </div>
-              <Link
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-600 px-5 text-sm font-black text-white shadow-sm shadow-blue-100 transition-colors hover:bg-blue-700"
-                href="/login"
-              >
-                ورود
-                <ArrowIcon />
-              </Link>
-            </div>
+          <div className="rounded-t-[34px] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,#eef7ff_100%)] px-7 pb-8 pt-8 shadow-[0_-10px_34px_rgba(219,234,254,0.55)] sm:px-12 sm:pb-10">
 
             {error && (
-              <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              <div className="mb-5 rounded-xl border border-red-100 bg-red-50/95 px-4 py-3 text-sm font-bold text-red-700 shadow-sm">
                 {error}
               </div>
             )}
 
             {step === "form" ? (
-              <form onSubmit={handleRequestOTP} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <form onSubmit={handleRequestOTP} className="space-y-4">
                 <div className="sm:col-span-2">
                   <label className="mb-2 block text-xs font-bold text-slate-600">نام و نام خانوادگی</label>
                   <div className={inputShellClass}>
@@ -296,7 +319,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="mt-2 h-14 rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+                  className="mt-2 h-14 w-full rounded-lg bg-[#154a91] text-base font-black text-white shadow-[0_16px_34px_rgba(21,74,145,0.24)] transition-all hover:-translate-y-0.5 hover:bg-[#0f3f7e] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
                 >
                   {loading ? "در حال ارسال کد..." : "دریافت کد تایید"}
                 </button>
@@ -304,41 +327,50 @@ export default function RegisterPage() {
             ) : (
               <form onSubmit={handleVerifyOTP} className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-xs font-bold text-slate-600">کد تایید</label>
-                  <div className={inputShellClass}>
-                    <input
-                      type="text"
-                      value={form.otp}
-                      onChange={(event) => updateField("otp", event.target.value)}
-                      placeholder="کد پیامک شده"
-                      className={`${inputClass} text-center text-lg tracking-[0.4em] ltr`}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      required
-                    />
+                  <label className="mb-3 block text-xs font-bold text-slate-600">کد تایید</label>
+                  <div dir="ltr" className="flex justify-center gap-2 sm:gap-3">
+                    {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+                      <input
+                        key={index}
+                        ref={(element) => {
+                          otpInputRefs.current[index] = element;
+                        }}
+                        type="text"
+                        value={form.otp[index] ?? ""}
+                        onChange={(event) => handleOtpChange(index, event.target.value)}
+                        onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                        onPaste={handleOtpPaste}
+                        aria-label={`OTP digit ${index + 1}`}
+                        style={{ fontFamily: "var(--font-vazir), system-ui, sans-serif" }}
+                        className={`h-12 w-10 rounded-xl border-2 bg-white text-center text-lg font-black text-slate-900 shadow-[0_8px_20px_rgba(29,78,216,0.08)] outline-none transition-all duration-200 sm:h-14 sm:w-12 sm:text-xl ${otpStatus === "success"
+                            ? "border-emerald-500 text-emerald-600 ring-4 ring-emerald-500/10"
+                            : otpStatus === "error"
+                              ? "border-red-500 text-red-600 ring-4 ring-red-500/10 animate-shake"
+                              : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          } ${loading || otpStatus === "success" ? "opacity-60" : "hover:border-slate-300"}`}
+                        autoComplete={index === 0 ? "one-time-code" : "off"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={index === 0 ? OTP_LENGTH : 1}
+                        disabled={loading || otpStatus === "success"}
+                        required
+                      />
+                    ))}
                   </div>
                 </div>
 
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading ? "در حال تایید..." : "تایید و ورود"}
-                </button>
-
-                <button
                   type="button"
                   onClick={() => setStep("form")}
-                  className="h-12 w-full rounded-xl border border-slate-200 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50"
+                  className="h-12 w-full rounded-lg border border-blue-100 bg-white/75 text-sm font-black text-slate-700 transition-colors hover:bg-white"
                 >
                   ویرایش اطلاعات
                 </button>
               </form>
             )}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

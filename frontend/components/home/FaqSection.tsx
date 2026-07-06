@@ -66,9 +66,7 @@ export default function FaqSection() {
     <section className="bg-white py-20" dir="rtl">
       <div className="mx-auto max-w-5xl px-6">
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">
-            پرسش‌های پرتکرار
-          </span>
+
 
           <h2 className="mt-5 text-3xl font-black leading-tight text-slate-900 md:text-4xl">
             سوالات <span className="text-blue-600">متداول</span>

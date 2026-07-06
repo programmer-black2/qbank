@@ -3,15 +3,15 @@
 import { usePathname } from "next/navigation";
 import SiteFooter from "@/components/footer/SiteFooter";
 
-const panelRoutes = ["/admin", "/author"];
+const hiddenLayoutRoutes = ["/admin", "/author", "/login", "/register"];
 
 export default function RouteFooter() {
   const pathname = usePathname();
-  const isPanelRoute = panelRoutes.some(
+  const shouldHideFooter = hiddenLayoutRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (isPanelRoute) {
+  if (shouldHideFooter) {
     return null;
   }
 

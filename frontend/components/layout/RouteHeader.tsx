@@ -3,15 +3,15 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/header/header";
 
-const panelRoutes = ["/admin", "/author"];
+const hiddenLayoutRoutes = ["/admin", "/author", "/login", "/register"];
 
 export default function RouteHeader() {
   const pathname = usePathname();
-  const isPanelRoute = panelRoutes.some(
+  const shouldHideHeader = hiddenLayoutRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (isPanelRoute) {
+  if (shouldHideHeader) {
     return null;
   }
 
