@@ -3,7 +3,7 @@ import Link from "next/link";
 
 const storySections = [
   {
-    eyebrow: "هدف دنتست",
+    
     title: "بانک سوالی برای مطالعه دقیق‌تر، سریع‌تر و مطمئن‌تر",
     description:
       "دنتست برای دانشجویان و داوطلبان حوزه پزشکی ساخته شده تا مسیر پیدا کردن درس، مبحث و سوال مناسب ساده‌تر شود. به جای جست‌وجوی پراکنده بین منابع مختلف، همه چیز در یک ساختار منظم و قابل پیگیری کنار هم قرار می‌گیرد.",
@@ -11,7 +11,6 @@ const storySections = [
     alt: "دانشجویان پزشکی در حال مطالعه با تبلت",
   },
   {
-    eyebrow: "ساختار آموزشی",
     title: "از دسته‌بندی درس‌ها تا تمرین هدفمند",
     description:
       "در دنتست، سوالات فقط یک فهرست ساده نیستند. هر سوال در مسیر درست خودش قرار می‌گیرد: درس، مبحث، سطح، آزمون و وضعیت یادگیری. این ساختار کمک می‌کند دانشجو بداند دقیقاً کجا ایستاده و قدم بعدی چیست.",
@@ -20,7 +19,6 @@ const storySections = [
     reverse: true,
   },
   {
-    eyebrow: "تحلیل و پیشرفت",
     title: "یادگیری وقتی ارزشمند است که قابل اندازه‌گیری باشد",
     description:
       "هدف ما فقط نمایش سوال نیست؛ دنتست باید به دانشجو کمک کند روند پیشرفت، نقاط ضعف و مسیر مرور را بهتر ببیند. تحلیل عملکرد و دسترسی سریع به تمرین‌ها، مطالعه را از حالت پراکنده به یک برنامه قابل اجرا تبدیل می‌کند.",
@@ -46,9 +44,7 @@ export default function AboutPage() {
 
         <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
-            <span className="inline-flex rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-black text-blue-700 shadow-sm">
-              درباره دنتست
-            </span>
+
             <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[1.45] text-blue-950 md:text-6xl">
               بانک سوال پزشکی، برای مطالعه‌ای منظم و قابل اعتماد
             </h1>
@@ -90,9 +86,7 @@ export default function AboutPage() {
       <section className="py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">
-              چرا ساخته شد؟
-            </span>
+
             <h2 className="mt-5 text-3xl font-black leading-tight text-blue-950 md:text-4xl">
               چون مطالعه پزشکی به نظم، سرعت و انتخاب درست نیاز دارد
             </h2>
@@ -143,12 +137,9 @@ export default function AboutPage() {
               </div>
 
               <div className="rounded-[32px] border border-blue-100 bg-white p-7 shadow-sm shadow-blue-100/60 md:p-9">
-                <span className="inline-flex rounded-full bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">
-                  {section.eyebrow}
-                </span>
-                <h2 className="mt-5 text-3xl font-black leading-[1.45] text-blue-950 md:text-4xl">
+                <h1 className="mt-5 text-3xl font-black leading-[1.45] text-blue-950 md:text-4xl">
                   {section.title}
-                </h2>
+                </h1>
                 <p className="mt-5 text-sm font-medium leading-9 text-blue-950/70 md:text-base">
                   {section.description}
                 </p>
