@@ -81,6 +81,10 @@ const withBase64Images = async (items: Question["media_items"] = []) => {
   );
 };
 
+const getDisplayQuestionId = (id?: number | null) => (
+  typeof id === "number" ? id - 1 : id
+);
+
 export default function QuestionManagementPanel({
   title,
   subtitle,
@@ -116,6 +120,7 @@ export default function QuestionManagementPanel({
     exam_type_id: "",
     workflow_status: initialWorkflowStatus,
   });
+  const totalPages = Math.max(1, Math.ceil(totalQuestions / 10));
 
   const updateFilters = (updater: (previousFilters: typeof filters) => typeof filters) => {
     setCurrentPage(1);
@@ -479,7 +484,7 @@ export default function QuestionManagementPanel({
                 >
                   <option value="">همه وضعیت‌ها</option>
                   <option value="pending">در انتظار تایید</option>
-                  <option value="approved">تایید شده</option>
+                  <option value="approved">تایید شده</option> 
                   <option value="rejected">رد شده</option>
                 </select>
               </div>
@@ -691,7 +696,7 @@ export default function QuestionManagementPanel({
 
         {detailLoadingId && (
           <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
-            در حال دریافت جزئیات کامل سوال #{detailLoadingId}...
+            در حال دریافت جزئیات کامل سوال {getDisplayQuestionId(detailLoadingId)}...
           </div>
         )}
 
@@ -708,10 +713,10 @@ export default function QuestionManagementPanel({
 
         <div className="mt-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="font-medium text-gray-600">
-            نمایش {questions.length} سوال از {totalQuestions} مورد
+           {totalQuestions} سوال
           </div>
 
-          <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
             <button
               type="button"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
@@ -720,13 +725,35 @@ export default function QuestionManagementPanel({
             >
               قبلی
             </button>
-            <span className="min-w-20 text-center font-bold text-gray-800">
-              صفحه {currentPage}
-            </span>
+            <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 font-bold text-gray-700">
+              <input
+                type="radio"
+                checked
+                readOnly
+                disabled={loading}
+                className="h-4 w-4 accent-blue-600"
+              />
+              <select
+                value={currentPage}
+                disabled={loading}
+                onChange={(event) => setCurrentPage(Number(event.target.value))}
+                className="bg-transparent font-bold text-gray-800 outline-none disabled:cursor-not-allowed"
+              >
+                {Array.from({ length: totalPages }, (_, index) => {
+                  const pageNumber = index + 1;
+
+                  return (
+                    <option key={pageNumber} value={pageNumber}>
+                      صفحه {pageNumber}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
             <button
               type="button"
               onClick={() => setCurrentPage((page) => page + 1)}
-              disabled={loading || currentPage * 10 >= totalQuestions}
+              disabled={loading || currentPage >= totalPages}
               className="rounded-lg border border-gray-300 px-4 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               بعدی
@@ -758,7 +785,7 @@ export default function QuestionManagementPanel({
               <div className="space-y-5 p-6">
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="text-xl font-bold text-gray-900">
-                    جزئیات سوال #{viewingQuestion.id}
+                    جزئیات سوال {getDisplayQuestionId(viewingQuestion.id)}
                   </h2>
                   <button
                     onClick={() => setViewingQuestion(null)}

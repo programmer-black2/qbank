@@ -23,6 +23,10 @@ export default function QuestionTable({
   onApprove,
   onReject,
 }: Props) {
+  const getDisplayQuestionId = (id?: number) => (
+    typeof id === 'number' ? id - 1 : id
+  );
+
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case 'mcq': return 'چند گزینه‌ای';
@@ -188,7 +192,7 @@ export default function QuestionTable({
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">
-          لیست سوالات ({questions.length} مورد)
+          لیست سوالات 
         </h3>
       </div>
 
@@ -197,7 +201,7 @@ export default function QuestionTable({
           <article key={question.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-bold text-gray-500">#{question.id}</p>
+                <p className="text-xs font-bold text-gray-500">{getDisplayQuestionId(question.id)}</p>
                 <p className="mt-1 line-clamp-3 text-sm font-bold leading-6 text-gray-900">
                   {question.question_text}
                 </p>
@@ -279,7 +283,7 @@ export default function QuestionTable({
               <tr key={question.id} className="hover:bg-gray-50 transition-colors">
                 {/* ID */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  #{question.id}
+                  {getDisplayQuestionId(question.id)}
                 </td>
 
                 {/* Question Text */}
@@ -402,7 +406,7 @@ export default function QuestionTable({
                       <button
                         onClick={() => onCopy(question)}
                         className="text-indigo-600 hover:text-indigo-800 transition-colors"
-                        title="کپی JSON سوال"
+                        title="کپی سوال"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

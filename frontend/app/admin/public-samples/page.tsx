@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/ui/AdminHeader';
 import { getCurrentUser } from '@/services/auth/auth.api';
@@ -43,6 +43,21 @@ export default function AdminPublicSamplesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredCourses = useMemo(() => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearchTerm) {
+      return courses;
+    }
+
+    return courses.filter((course) =>
+      [course.name_course, course.stage_name]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearchTerm))
+    );
+  }, [courses, searchTerm]);
 
   const loadCourses = useCallback(async () => {
     const coursesResponse = await getCourses();
@@ -135,13 +150,30 @@ export default function AdminPublicSamplesPage() {
             </div>
           )}
 
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-black text-gray-700">
+              جستجوی درس
+            </label>
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="نام درس یا مقطع را جستجو کنید..."
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+            />
+          </div>
+
           {courses.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
               هنوز درسی ثبت نشده است.
             </div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
+              نتیجه‌ای برای این جستجو پیدا نشد.
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {courses.map((course) => {
+              {filteredCourses.map((course) => {
                 const isSaving = savingId === course.id;
 
                 return (

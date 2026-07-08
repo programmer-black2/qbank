@@ -67,9 +67,9 @@ export default function ProfileSummary({ user }: ProfileSummaryProps) {
             <h2 className="text-3xl font-black leading-10 text-blue-950">
               {displayName}
             </h2>
-            <p className="text-sm font-bold text-blue-700">
+            {/* <p className="text-sm font-bold text-blue-700">
               دانشجوی دنتست
-            </p>
+            </p> */}
           </div>
 
           <div className="mt-6 grid gap-3 text-sm font-medium text-blue-950/70">

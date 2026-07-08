@@ -238,13 +238,22 @@ function QuestionCard({
   question,
   questionNumber,
   hasActiveSubscription,
+  hasPreviousQuestion,
+  hasNextQuestion,
+  onPreviousQuestion,
+  onNextQuestion,
 }: {
   question: Question;
   questionNumber: number;
   hasActiveSubscription: boolean;
+  hasPreviousQuestion: boolean;
+  hasNextQuestion: boolean;
+  onPreviousQuestion: () => void;
+  onNextQuestion: () => void;
 }) {
   const [selectedChoiceId, setSelectedChoiceId] = useState<number | string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [revealCorrectChoice, setRevealCorrectChoice] = useState(false);
   const [answer, setAnswer] = useState<StudentQuestionAnswer | null>(null);
   const [answerLoading, setAnswerLoading] = useState(false);
   const [answerError, setAnswerError] = useState("");
@@ -256,11 +265,25 @@ function QuestionCard({
     (choice) => (choice.id ?? choice.option_number) === selectedChoiceId
   );
   const isAnswered = selectedChoiceId !== null;
+  const shouldShowChoiceResult = isAnswered || revealCorrectChoice;
+  const answerMessage = selectedChoice?.is_correct ? "جواب شما درست بود" : "جواب شما نادرست بود";
+
+  useEffect(() => {
+    setSelectedChoiceId(null);
+    setShowAnswer(false);
+    setRevealCorrectChoice(false);
+    setAnswer(null);
+    setAnswerError("");
+    setReportOpen(false);
+    setReportMessage("");
+    setReportStatus("");
+  }, [question.id, question.question_text]);
 
   const handleShowAnswer = async () => {
     if (!question.id) return;
 
     setShowAnswer(true);
+    setRevealCorrectChoice(true);
 
     if (answer || answerLoading) {
       return;
@@ -277,6 +300,11 @@ function QuestionCard({
     } finally {
       setAnswerLoading(false);
     }
+  };
+
+  const handleChoiceSelect = (choiceId: number | string) => {
+    setSelectedChoiceId(choiceId);
+    setRevealCorrectChoice(false);
   };
 
   const handleReport = async () => {
@@ -297,81 +325,128 @@ function QuestionCard({
   };
 
   return (
-    <article className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
-          <span className="rounded-full bg-blue-600 px-3 py-1 text-white">
+    <article className="min-h-[520px] rounded-[2rem] border border-slate-100 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] md:p-7">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-5">
+        <div>
+          <span className="inline-flex rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white shadow-sm shadow-blue-100">
             سوال {questionNumber.toLocaleString("fa-IR")}
           </span>
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">
+          <h3 className="mt-3 text-xl font-black leading-9 text-slate-950">
+            نمایش سوال
+          </h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+          <span className="rounded-full bg-blue-50 px-3 py-1.5 text-blue-700">
             {question.question_type_display || questionTypeLabels[question.question_type] || question.question_type}
           </span>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">
             {question.difficulty_display || difficultyLabels[question.difficulty] || question.difficulty}
           </span>
         </div>
-        {isAnswered && question.question_type === "mcq" && (
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-black ${
-              selectedChoice?.is_correct
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700"
-            }`}
-          >
-            {selectedChoice?.is_correct ? "پاسخ درست" : "پاسخ نادرست"}
-          </span>
-        )}
       </div>
 
-      <p className="text-base font-black leading-8 text-slate-900">
-        {question.question_text}
-      </p>
+      <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
+        <p className="text-base font-black leading-9 text-slate-950 md:text-lg">
+          {question.question_text}
+        </p>
+      </div>
 
       {question.choices && question.choices.length > 0 && (
-        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 md:grid-cols-2">
-          {question.choices.map((choice) => (
-            <button
-              type="button"
-              key={choice.id ?? choice.option_number}
-              onClick={() => setSelectedChoiceId(choice.id ?? choice.option_number)}
-              className={`rounded-xl border px-4 py-3 text-right text-sm font-bold leading-7 transition-colors ${
-                showAnswer && correctChoice && choice.is_correct
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : showAnswer && selectedChoiceId === (choice.id ?? choice.option_number) && !choice.is_correct
-                    ? "border-red-200 bg-red-50 text-red-800"
-                    : selectedChoiceId === (choice.id ?? choice.option_number)
-                      ? "border-blue-300 bg-blue-50 text-blue-800"
-                      : "border-slate-100 bg-slate-50 text-slate-700 hover:border-blue-200 hover:bg-blue-50"
-              }`}
-            >
-              <span className="ml-2 text-blue-700">
-                گزینه {choice.option_number.toLocaleString("fa-IR")}:
-              </span>
-              {choice.option_text}
-            </button>
-          ))}
+        <div className="mt-6 space-y-3">
+          {question.choices.map((choice) => {
+            const choiceId = choice.id ?? choice.option_number;
+            const isSelected = selectedChoiceId === choiceId;
+
+            return (
+              <button
+                type="button"
+                key={choiceId}
+                onClick={() => handleChoiceSelect(choiceId)}
+                className={`group flex w-full items-start gap-3 rounded-2xl border-2 px-4 py-4 text-right text-sm font-bold leading-7 transition-all ${
+                  shouldShowChoiceResult && choice.is_correct
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm"
+                    : shouldShowChoiceResult && isSelected && !choice.is_correct
+                      ? "border-red-500 bg-red-50 text-red-950 shadow-sm"
+                      : isSelected
+                        ? "border-blue-400 bg-blue-50 text-blue-950 shadow-sm"
+                        : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
+                }`}
+              >
+                <span className={`flex h-8 min-w-8 items-center justify-center rounded-xl text-xs font-black ${
+                  shouldShowChoiceResult && choice.is_correct
+                    ? "bg-emerald-600 text-white"
+                    : shouldShowChoiceResult && isSelected && !choice.is_correct
+                      ? "bg-red-600 text-white"
+                      : "bg-blue-50 text-blue-700 group-hover:bg-blue-600 group-hover:text-white"
+                }`}>
+                  {choice.option_number.toLocaleString("fa-IR")}
+                </span>
+                <span>{choice.option_text}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-        <button
-          type="button"
-          onClick={handleShowAnswer}
-          className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-blue-700"
+      {isAnswered && question.question_type === "mcq" && (
+        <div
+          className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-black ${
+            selectedChoice?.is_correct
+              ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+              : "border-red-100 bg-red-50 text-red-700"
+          }`}
         >
-          نمایش پاسخ
-        </button>
-        <button
-          type="button"
-          onClick={() => setReportOpen((value) => !value)}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          گزارش سوال
-        </button>
+          {answerMessage}
+        </div>
+      )}
+
+      {question.question_type === "mcq" && (!question.choices || question.choices.length === 0) && (
+        <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+          گزینه‌ای برای این سوال ثبت نشده است.
+        </div>
+      )}
+
+      <div className="mt-5 flex items-start justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="flex flex-col items-start gap-2">
+          <button
+            type="button"
+            onClick={handleShowAnswer}
+            className="min-w-24 rounded-xl bg-blue-600 px-3 py-2 text-[11px] font-black text-white shadow-lg shadow-blue-100 transition-colors hover:bg-blue-700 sm:min-w-36 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+          >
+            نمایش گزینه درست
+          </button>
+          <button
+            type="button"
+            onClick={onPreviousQuestion}
+            disabled={!hasPreviousQuestion}
+            className="min-w-24 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-black text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-36 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+          >
+            سوال قبلی
+          </button>
+        </div>
+
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setReportOpen((value) => !value)}
+            className="min-w-24 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-700 transition-colors hover:bg-slate-50 sm:min-w-36 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+          >
+            گزارش سوال
+          </button>
+          <button
+            type="button"
+            onClick={onNextQuestion}
+            disabled={!hasNextQuestion}
+            className="min-w-24 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-black text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-36 sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm"
+          >
+            سوال بعدی
+          </button>
+        </div>
       </div>
 
       {showAnswer && (
-        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
           {answerLoading && <p className="text-sm font-bold text-blue-700">در حال دریافت پاسخ...</p>}
           {answerError && <p className="text-sm font-bold text-red-600">{answerError}</p>}
           {!answerLoading && !answerError && (
@@ -432,6 +507,7 @@ export default function CategoryRoutePage() {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [questionTypeFilter, setQuestionTypeFilter] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("");
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
 
   const resolvedRoute = useMemo(
     () => resolveCategoryRoute(categories, params.segments),
@@ -451,6 +527,7 @@ export default function CategoryRoutePage() {
       return matchesType && matchesDifficulty;
     });
   }, [difficultyFilter, questionTypeFilter, questions]);
+  const activeQuestion = visibleQuestions[activeQuestionIndex] ?? visibleQuestions[0];
 
   const isLockedNode = (node: CategoryNode) => {
     if (hasActiveSubscription) return false;
@@ -566,6 +643,16 @@ export default function CategoryRoutePage() {
     };
   }, [currentNode, hasActiveSubscription, hasCurrentCourseAccess, router, shouldLoadQuestions]);
 
+  useEffect(() => {
+    setActiveQuestionIndex(0);
+  }, [currentNode?.id, difficultyFilter, questionTypeFilter]);
+
+  useEffect(() => {
+    if (activeQuestionIndex >= visibleQuestions.length) {
+      setActiveQuestionIndex(0);
+    }
+  }, [activeQuestionIndex, visibleQuestions.length]);
+
   return (
     <AuthGuard>
       <main className="min-h-screen bg-[#f8fafc] px-4 py-8 text-right md:px-8">
@@ -606,13 +693,13 @@ export default function CategoryRoutePage() {
             <CategoryBreadcrumb path={resolvedRoute.path} />
 
             <header className="space-y-3">
-              <span
+              {/* <span
                 className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
                   typeStyles[currentNode.type]
                 }`}
               >
                 {typeLabels[currentNode.type]}
-              </span>
+              </span> */}
 
               <h1 className="text-2xl font-black leading-[1.5] text-slate-950 md:text-4xl">
                 {currentNode.name}
@@ -673,16 +760,18 @@ export default function CategoryRoutePage() {
 
             {shouldLoadQuestions && hasCurrentCourseAccess && (
               <section className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm backdrop-blur md:p-5">
-                <div className="mb-4 space-y-1.5 border-b border-slate-100 pb-4">
+                {/* <div className="mb-4 space-y-1.5 border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 md:text-xl">
                     سوالات {currentNode.name}
                   </h2>
-                  <p className="text-xs font-medium leading-6 text-slate-500">
-                    سوالات بر اساس شناسه نوع آزمون فیلتر شده‌اند.
-                  </p>
-                </div>
+                </div> */}
 
-                <div className="mb-4 grid grid-cols-1 gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 md:grid-cols-2">
+
+
+                {/* فیلتر کردن سوالات و نمایش آن  */}
+
+
+                {/* <div className="mb-4 grid grid-cols-1 gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 md:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-black text-blue-800">نوع سوال</label>
                     <select
@@ -709,7 +798,7 @@ export default function CategoryRoutePage() {
                       <option value="hard">سخت</option>
                     </select>
                   </div>
-                </div>
+                </div> */}
 
                 {questionsLoading && (
                   <div className="py-8 text-center text-sm font-bold text-slate-500">
@@ -735,16 +824,70 @@ export default function CategoryRoutePage() {
                   </div>
                 )}
 
-                {!questionsLoading && !questionsError && visibleQuestions.length > 0 && (
-                  <div className="mx-auto grid w-full max-w-[90%] grid-cols-1 gap-4 max-md:max-w-full">
-                    {visibleQuestions.map((question, index) => (
+                {!questionsLoading && !questionsError && activeQuestion && (
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
+                    <aside className="order-2 lg:order-1 lg:col-span-1">
+                      <div className="sticky top-6 overflow-hidden rounded-[2rem] border border-blue-100 bg-blue-600 shadow-[0_20px_60px_rgba(37,99,235,0.20)]">
+                        <div className="border-b border-white/15 bg-blue-700 px-5 py-5 text-white">
+                          <h3 className="text-lg font-black">
+                            مجموع سوالات 
+                          </h3>
+
+                        </div>
+
+                        <div className="max-h-[68vh] space-y-2 overflow-y-auto bg-blue-50 p-3">
+                          {visibleQuestions.map((question, questionIndex) => {
+                            const isActiveQuestion = questionIndex === activeQuestionIndex;
+
+                            return (
+                              <button
+                                type="button"
+                                key={question.id ?? `${question.question_text}-${questionIndex}`}
+                                onClick={() => setActiveQuestionIndex(questionIndex)}
+                                className={`w-full rounded-2xl border px-3 py-3 text-right shadow-sm transition-all hover:border-blue-300 ${
+                                  isActiveQuestion
+                                    ? "border-slate-200 bg-slate-200 text-slate-900"
+                                    : "border-blue-100 bg-white/90 text-slate-700 hover:bg-white"
+                                }`}
+                              >
+                                <div className="mb-1 flex items-center justify-between gap-2">
+                                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                                    isActiveQuestion
+                                      ? "bg-slate-300 text-slate-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}>
+                                    سوال {(questionIndex + 1).toLocaleString("fa-IR")}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-slate-500">
+                                    {question.question_type_display || questionTypeLabels[question.question_type] || question.question_type}
+                                  </span>
+                                </div>
+                                <p className="line-clamp-2 text-xs font-bold leading-6">
+                                  {question.question_text}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </aside>
+
+                    <div className="order-1 lg:order-2 lg:col-span-3">
                       <QuestionCard
-                        key={question.id ?? question.question_text}
-                        question={question}
-                        questionNumber={index + 1}
+                        key={activeQuestion.id ?? activeQuestion.question_text}
+                        question={activeQuestion}
+                        questionNumber={activeQuestionIndex + 1}
                         hasActiveSubscription={hasActiveSubscription}
+                        hasPreviousQuestion={activeQuestionIndex > 0}
+                        hasNextQuestion={activeQuestionIndex < visibleQuestions.length - 1}
+                        onPreviousQuestion={() =>
+                          setActiveQuestionIndex((index) => Math.max(index - 1, 0))
+                        }
+                        onNextQuestion={() =>
+                          setActiveQuestionIndex((index) => Math.min(index + 1, visibleQuestions.length - 1))
+                        }
                       />
-                    ))}
+                    </div>
                   </div>
                 )}
               </section>
